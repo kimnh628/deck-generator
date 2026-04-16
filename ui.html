@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Inter, -apple-system, sans-serif; padding: 16px; background: #fff; }
+  h2 { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+  select, textarea, button { width: 100%; font-family: inherit; font-size: 13px; border-radius: 6px; }
+  select { padding: 8px; border: 1px solid #e0e0e0; margin-bottom: 12px; background: #fafafa; }
+  textarea { height: 280px; padding: 10px; border: 1px solid #e0e0e0; resize: vertical; margin-bottom: 12px;
+    font-family: 'SF Mono', monospace; font-size: 12px; line-height: 1.4; }
+  button { padding: 10px; border: none; background: #131313; color: #fff; font-weight: 600; cursor: pointer; }
+  button:hover { background: #FF006A; }
+  .hint { font-size: 11px; color: #808080; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+  <h2>Deck Generator</h2>
+  <p class="hint">Slide JSON 을 붙여넣고 Generate 클릭. design.md v2.3 토큰 자동 적용.</p>
+
+  <select id="preset">
+    <option value="">— Preset 선택 (선택사항) —</option>
+    <option value="full-deck-lumi">🎯 Full Deck — Lumi (7장)</option>
+    <option value="full-deck-medira">🎯 Full Deck — Medira (7장)</option>
+    <option value="full-deck-kakao">🎯 Full Deck — Kakao×GoodGang (4장)</option>
+    <option value="splash-cover">Splash Cover (KR1 style)</option>
+    <option value="splash-closing">Splash Closing (KR19 style)</option>
+    <option value="icon-card-grid">IconCard Grid</option>
+    <option value="stat-card-grid">StatCard Grid + DarkBanner</option>
+    <option value="stat-card-footer">StatCard + FooterBar (Traction)</option>
+    <option value="compare-table">CompareTable</option>
+    <option value="biz-model">Business Model (IconCard + 매출목표)</option>
+    <option value="problem">Problem (GrowthStatCard + DarkBanner)</option>
+    <option value="solution">Solution (BulletCard + PersonCard)</option>
+    <option value="mixed-grid">Traction Mixed (2×2 혼합)</option>
+    <option value="step-flow">How It Works (Step Flow)</option>
+    <option value="custom-dense">⚡ Custom Dense (2×2 혼합 + FooterBar)</option>
+    <option value="custom-3row">⚡ Custom 3행 (Icon + Stat + DarkBanner)</option>
+  </select>
+
+  <textarea id="json" placeholder='{
+  "type": "splash",
+  "variant": "name_top",
+  "title": ["Invisible AI,", "made visible and lovable."],
+  "subtitle": "Web-based Real-time Voice 3D AI Avatars Platform",
+  "presenter": { "name": "안두경 | Co-founder & CEO", "email": "dookyung@goodganglabs.com" }
+}'></textarea>
+
+  <button id="generate">Generate Slide</button>
+
+<script>
+  const presets = {
+    'full-deck-lumi': {
+      type: 'full-deck',
+      name: 'Lumi Learning',
+      slides: [
+        { type: 'splash', variant: 'name_top', title: ['Lumi, your child\'s first', 'English friend.'], titleLang: 'en', subtitle: 'AI tutor that grows with your child', presenter: { name: '\uBC15\uB098\uB798 | Founder & CEO', email: 'nara@lumilearning.ai' } },
+        { type: 'icon-card-grid', eyebrow: 'Problem', headline: 'Why kids quit English: 3 broken promises', accentWord: '3 broken promises', cards: [{ title: 'Pay & forget', body: '\uAD6C\uB3C5 \uD6C4 1\uC8FC\uC77C \uB9CC\uC5D0 80% \uAC00 \uBA48\uCDA4' }, { title: 'Boring drills', body: '\uAC19\uC740 \uB2E8\uC5B4, \uAC19\uC740 quiz' }, { title: 'No bond', body: 'AI \uAC00 \uC815\uB2F5 \uCC44\uC810\uB9CC \uD568' }], darkBanner: { text: '\uACB0\uACFC \u2014 \uBD80\uBAA8\uB294 \uACB0\uC81C\uD558\uACE0, \uC544\uC774\uB294 1\uC8FC\uC77C \uB9CC\uC5D0 \uC0AC\uB77C\uC9D1\uB2C8\uB2E4.', accentPart: '\uC544\uC774\uB294 1\uC8FC\uC77C \uB9CC\uC5D0 \uC0AC\uB77C\uC9D1\uB2C8\uB2E4.' } },
+        { type: 'icon-card-grid', eyebrow: 'Solution', headline: 'Lumi \u2014 a friend, not an app', accentWord: 'Lumi', lead: { subtitle: '\uCE5C\uAD6C\uC774\uC790 \uB9E4\uC77C\uC758 \uBAA8\uD5D8.', body: 'AI \uCE90\uB9AD\uD130\uAC00 \uC544\uC774 \uC774\uB984\uC744 \uBD80\uB974\uBA70 \uB9E4\uC77C \uC0C8\uB85C\uC6B4 \uBAA8\uD5D8\uC744 \uD568\uAED8\uD568.' }, cards: [{ title: 'Personal greeting', body: '\uC544\uC774 \uC774\uB984\uACFC \uAD00\uC2EC\uC0AC\uB97C \uAE30\uC5B5' }, { title: 'Story-driven play', body: '\uB9E4\uC77C \uB2E4\uB978 \uBBF8\uB2C8 \uBAA8\uD5D8' }, { title: 'Adaptive level', body: '\uC790\uB3D9 \uB09C\uC774\uB3C4 \uC870\uC815' }, { title: 'Emotion-aware', body: '\uC544\uC774 \uAE30\uBD84\uC744 \uC77D\uACE0 \uBC18\uC751' }] },
+        { type: 'stat-card-grid', eyebrow: 'Market', headline: '\uAE00\uB85C\uBC8C EdTech \uC2DC\uC7A5\uC758 4\uAC00\uC9C0 \uD750\uB984', accentWord: '4\uAC00\uC9C0 \uD750\uB984', cards: [{ title: 'K-12 EdTech', sub: '\uC804 \uC138\uACC4 K-12', label: '2030', stat: '$680B' }, { title: 'AI Tutor', sub: 'AI \uD29C\uD130 \uC0AC\uC6A9\uB960', label: '2025E', stat: '42%' }, { title: '\uC720\uC544 \uC601\uC5B4', sub: '\uD55C\uAD6D \uC2DC\uC7A5', label: '2024', stat: '\u20A92.3T' }, { title: '\uC0AC\uC6A9 \uC2DC\uAC04', sub: 'retention', label: 'Lumi', stat: '45min' }], darkBanner: { text: '2030\uB144 \u2014 EdTech \uC758 \uC2B9\uC790\uAC00 \uAC08\uB9BD\uB2C8\uB2E4.', accentPart: 'EdTech \uC758 \uC2B9\uC790\uAC00 \uAC08\uB9BD\uB2C8\uB2E4.' } },
+        { type: 'step-flow', eyebrow: 'How It Works', headline: '5\uBD84 \uC548\uC5D0 \uC2DC\uC791\uD558\uB294 Lumi \uC758 \uD558\uB8E8', accentWord: 'Lumi \uC758 \uD558\uB8E8', steps: [{ icon: '', title: 'Open the app', desc: 'QR or app store' }, { icon: '', title: 'Lumi greets', desc: '\uC774\uB984 \uAE30\uC5B5' }, { icon: '', title: 'Play & learn', desc: '\uC624\uB298\uC758 \uBAA8\uD5D8' }], darkBanner: { text: 'No homework. No drills. Just play.', accentPart: 'Just play.' } },
+        { type: 'stat-card-grid', eyebrow: 'Traction', headline: '\uBCA0\uD0C0 90\uC77C \u2014 \uAC80\uC99D\uB41C engagement', accentWord: '\uAC80\uC99D\uB41C engagement', lead: { subtitle: '\uC11C\uC6B8/\uBD80\uC0B0 30\uAC1C \uAC00\uC815.', body: '2025\uB144 1\uC6D4~3\uC6D4 \uBCA0\uD0C0.' }, cards: [{ title: 'DAR', sub: '\uC5C5\uACC4 12%', label: 'Lumi', stat: '78%' }, { title: 'D7', sub: '\uC5C5\uACC4 8%', label: 'Lumi', stat: '65%' }, { title: 'NPS', sub: '\uC5C5\uACC4 +18', label: 'Lumi', stat: '+72' }], footerBar: [{ label: '\uBCA0\uD0C0 \uAC00\uC815', value: '30' }, { label: '\uCD1D \uC0AC\uC6A9', value: '4,200 min' }, { label: '\uCD9C\uC2DC', value: '2026 Q3' }] },
+        { type: 'splash', variant: 'email_top', title: ['Let\'s give kids a friend,', 'not a feed.'], titleLang: 'en', titleColor: 'accent', subtitle: 'Join us as we redefine first English.', presenter: { name: '\uBC15\uB098\uB798 | Founder & CEO', email: 'nara@lumilearning.ai' } }
+      ]
+    },
+    'full-deck-medira': {
+      type: 'full-deck',
+      name: 'Medira Health',
+      slides: [
+        { type: 'splash', variant: 'name_top', title: ['Medira \u2014 AI that manages', 'diabetes before you do.'], titleLang: 'en', subtitle: 'Continuous AI Glucose Management Platform', presenter: { name: '\uAE40\uC218\uC9C4 | Co-founder & CEO', email: 'sujin@medira.health' } },
+        { type: 'problem', eyebrow: 'The Problem', headline: '\uB2F9\uB1E8 \uAD00\uB9AC\uC758 \uD604\uC2E4: \uBC29\uCE58\uB418\uB294 90\uC77C', accentWord: '\uBC29\uCE58\uB418\uB294 90\uC77C', lead: { subtitle: '', body: '\uC9C4\uB2E8 \uD6C4 90\uC77C \uB0B4 \uC790\uAE30 \uAD00\uB9AC \uD3EC\uAE30\uC728 68%.' }, cards: [{ title: '\uD3EC\uAE30\uC728', before: '32%', after: '68%', labels: ['\uC9C4\uB2E8\uC9C1\uD6C4', '90\uC77C\uD6C4'] }, { title: 'CGM \uD65C\uC6A9', before: '85%', after: '12%', labels: ['1\uC8FC', '12\uC8FC'] }, { title: '\uD569\uBCD1\uC99D', before: '8%', after: '34%', labels: ['\uAD00\uB9AC', '\uBC29\uCE58'] }], darkBanner: { text: '\uBC29\uCE58\uB41C \uB370\uC774\uD130\uAC00 \uD569\uBCD1\uC99D\uC744 \uB9CC\uB4ED\uB2C8\uB2E4.', accentPart: '\uD569\uBCD1\uC99D\uC744 \uB9CC\uB4ED\uB2C8\uB2E4.' } },
+        { type: 'solution', eyebrow: 'Solution', headline: 'Medira \u2014 \uB2F9\uC2E0\uC758 AI \uC8FC\uCE58\uC758', accentWord: 'Medira', lead: { subtitle: '24\uC2DC\uAC04 AI', body: 'CGM \uB370\uC774\uD130 \uC2E4\uC2DC\uAC04 \uBD84\uC11D.' }, bulletCards: [{ title: '\uD658\uC790\uC6A9', items: ['\uD608\uB2F9 \uC608\uCE21', '\uC2DD\uC0AC \uBD84\uC11D', '\uB9AC\uD3EC\uD2B8 \uC790\uB3D9'] }, { title: '\uC758\uC0AC\uC6A9', items: ['\uD328\uD134 \uD788\uD2B8\uB9F5', '\uC774\uC0C1\uCE58 \uD50C\uB798\uADF8', '\uCC98\uBC29 AI'] }], personCards: [{ name: '\uAE40\uC218\uC9C4', role: 'CEO', highlights: '\uC11C\uC6B8\uB300\uBCD1\uC6D0' }, { name: '\uBC15\uC815\uD6C8', role: 'CTO', highlights: 'Google Health' }] },
+        { type: 'compare-table', eyebrow: 'Market', headline: '\uAE30\uC874 CGM \uC571 vs Medira', accentWord: 'Medira', headers: ['\uAE30\uC874 CGM', 'Medira'], rows: [['\uBAA8\uB2C8\uD130\uB9C1', '\uC218\uB3D9', 'AI \uC608\uCE21'], ['\uC2DD\uC0AC', '\uC218\uB3D9 \uC785\uB825', '\uC0AC\uC9C4 \uBD84\uC11D'], ['\uC758\uC0AC', 'PDF', '\uB300\uC2DC\uBCF4\uB4DC'], ['\uCF54\uCE6D', '\uC5C6\uC74C', '\uB2A5\uB3D9 \uC54C\uB9BC'], ['\uAC00\uACA9', '$29/mo', '$19/mo']] },
+        { type: 'mixed-grid', eyebrow: 'Traction', headline: '12\uAC1C\uC6D4 \u2014 \uAC80\uC99D\uB41C \uC784\uC0C1', accentWord: '\uAC80\uC99D\uB41C \uC784\uC0C1', cells: [{ kind: 'stat-hero', title: '\uD608\uB2F9 \uBC94\uC704\uB0B4', stat: '82%', sub: '+12%p' }, { kind: 'stat-hero', title: 'NPS', stat: '+68', sub: '\uD3C9\uADE0+22' }, { kind: 'labeled-list', title: '\uD30C\uD2B8\uB108', groups: [{ label: '\uBCD1\uC6D0', items: '\uC11C\uC6B8\uB300\u00B7\uC5F0\uC138\uB300\u00B7\uC0BC\uC131' }] }, { kind: 'stat-hero', title: 'HbA1c', stat: '-1.7%p', sub: '8.2\u21926.5' }] },
+        { type: 'biz-model', eyebrow: 'Business Model', headline: 'B2B2C', accentWord: 'B2B2C', lead: { subtitle: '\uC774\uC911 \uC218\uC775', body: '\uBCD1\uC6D0 SaaS + \uD658\uC790 \uAD6C\uB3C5' }, cards: [{ title: '\uBCD1\uC6D0 SaaS', body: '500K/\uC758\uC0AC' }, { title: '\uD658\uC790 \uAD6C\uB3C5', body: '19K/mo' }, { title: '\uB370\uC774\uD130', body: '\uC81C\uC57D\uC0AC \uB9AC\uC11C\uCE58' }], sectionTitle: '2027 \uBAA9\uD45C', footerBlocks: [{ stat: '\u20A912B', sub: 'ARR' }, { stat: '340', sub: '\uBCD1\uC6D0' }, { stat: '85K', sub: '\uAD6C\uB3C5\uC790' }] },
+        { type: 'splash', variant: 'email_top', title: ['Let\'s make diabetes', 'manageable.'], titleLang: 'en', titleColor: 'accent', subtitle: 'Series A \uD22C\uC790 \uB77C\uC6B4\uB4DC \uC9C4\uD589 \uC911', presenter: { name: '\uAE40\uC218\uC9C4 | Co-founder & CEO', email: 'sujin@medira.health' } }
+      ]
+    },
+    'custom-dense': {
+      type: 'custom',
+      eyebrow: 'Overview',
+      headline: '\uD55C \uB208\uC5D0 \uBCF4\uB294 \uC0AC\uC5C5 \uD604\uD669',
+      accentWord: '\uC0AC\uC5C5 \uD604\uD669',
+      lead: { subtitle: '2025 Q1 \uC694\uC57D', body: '\uC8FC\uC694 \uC9C0\uD45C\uC640 \uD30C\uD2B8\uB108 \uD604\uD669\uC744 \uC815\uB9AC\uD569\uB2C8\uB2E4.' },
+      rows: [
+        {
+          cards: [
+            { primitive: 'stat-hero', title: '\uC6D4\uAC04 \uD65C\uC131 \uC0AC\uC6A9\uC790', stat: '128K', sub: '\uC804\uC6D4 \uB300\uBE44 +34%' },
+            { primitive: 'stat-hero', title: '\uC6D4 \uB9E4\uCD9C', stat: '\u20A93.2B', sub: 'ARR \u20A938.4B \uD398\uC774\uC2A4' },
+            { primitive: 'stat-hero', title: 'NPS', stat: '+72', sub: '\uC5C5\uACC4 \uD3C9\uADE0 +22' }
+          ]
+        },
+        {
+          cards: [
+            { primitive: 'labeled-list', title: '\uC8FC\uC694 \uD30C\uD2B8\uB108', groups: [{ label: '\uB300\uAE30\uC5C5', items: '\uCE74\uCE74\uC624 \u00B7 \uB124\uC774\uBC84 \u00B7 \uB77C\uC778' }, { label: '\uC911\uAC04\uAE09', items: '\uC218\uC6D0\uB300 \u00B7 \uD604\uB300\uBC31\uD654\uC810 \u00B7 \uB77C\uC774\uC5B8\uAC8C\uC784\uC988' }] },
+            { primitive: 'bullet', title: '\uC774\uBC88 \uBD84\uAE30 \uBAA9\uD45C', items: ['Series B \uD22C\uC790 \uC720\uCE58 (\u20A950B)', '\uC77C\uBCF8 \uC2DC\uC7A5 \uC9C4\uCD9C \uC900\uBE44', 'B2B \uD30C\uC774\uD504\uB77C\uC778 10\uAC74 \uD655\uBCF4', '\uC2E0\uADDC IP 3\uC885 \uB7F0\uCE6D'] }
+          ]
+        }
+      ],
+      footer: { primitive: 'footer-bar', cells: [{ label: '\uB204\uC801 \uD22C\uC790', value: '\u20A918B' }, { label: '\uC9C1\uC6D0\uC218', value: '47\uBA85' }, { label: '\uCD9C\uC2DC \uC608\uC815', value: '2025 Q3' }] }
+    },
+    'custom-3row': {
+      type: 'custom',
+      eyebrow: 'Product',
+      headline: 'AI \uC544\uBC14\uD0C0 \uD50C\uB7AB\uD3FC\uC758 3\uAC00\uC9C0 \uD575\uC2EC',
+      accentWord: '3\uAC00\uC9C0 \uD575\uC2EC',
+      rows: [
+        {
+          cards: [
+            { primitive: 'icon-card', emoji: 'robot', title: '\uC2E4\uC2DC\uAC04 \uC74C\uC131 AI', body: '\uC6F9 \uAE30\uBC18 \uC2E4\uC2DC\uAC04 \uC74C\uC131 \uD569\uC131 + \uB9BD\uC2F1\uD06C' },
+            { primitive: 'icon-card', emoji: 'sparkles', title: '3D \uC544\uBC14\uD0C0 \uB80C\uB354\uB9C1', body: '\uBE0C\uB77C\uC6B0\uC800\uC5D0\uC11C \uC2E4\uD589\uB418\uB294 \uACE0\uD488\uC9C8 3D' },
+            { primitive: 'icon-card', emoji: 'link', title: 'API \uD1B5\uD569', body: '\uC5B4\uB5A4 \uD50C\uB7AB\uD3FC\uC5D0\uB4E0 \uC784\uBCA0\uB4DC \uAC00\uB2A5' }
+          ]
+        },
+        {
+          cards: [
+            { primitive: 'stat-hero', title: '\uC751\uB2F5 \uC18D\uB3C4', stat: '< 200ms', sub: '\uC2E4\uC2DC\uAC04 \uC74C\uC131 \uC0DD\uC131' },
+            { primitive: 'stat-hero', title: '\uB3D9\uC2DC \uC811\uC18D', stat: '10K+', sub: '\uB2E8\uC77C \uC778\uC2A4\uD134\uC2A4' },
+            { primitive: 'stat-hero', title: '\uC9C0\uC6D0 \uC5B8\uC5B4', stat: '12\uAC1C', sub: 'KR/EN/JP/CN \uD3EC\uD568' }
+          ]
+        }
+      ],
+      footer: { primitive: 'dark-banner', text: 'Invisible AI, made visible and lovable.', accentPart: 'visible and lovable.' }
+    },
+    'full-deck-kakao': {
+      type: 'full-deck',
+      name: 'Kakao \u00D7 GoodGang',
+      slides: [
+        {
+          type: 'splash', variant: 'name_top',
+          title: ['From IP Creation', 'to Living IP Engine.'],
+          titleLang: 'en',
+          subtitle: '\uCE74\uCE74\uC624 \uC5D4\uD130\uD14C\uC778\uBA3C\uD2B8\uC758 IP\uC640 \uAD7F\uAC31\uB7A9\uC2A4\uC758 AI \uC544\uBC14\uD0C0 \uD14C\uD06C\uAC00 \uB9CC\uB098\n\uCF58\uD150\uCE20 \uC18C\uBE44\uC758 \uC0C8\uB85C\uC6B4 \uACBD\uD5D8\uC744 \uCC3D\uCD9C\uD569\uB2C8\uB2E4.',
+          presenter: { name: '\uCE74\uCE74\uC624 \uC5D4\uD130\uD14C\uC778\uBA3C\uD2B8 \u00D7 GoodGang Labs', email: '' }
+        },
+        {
+          type: 'icon-card-grid',
+          eyebrow: 'Situation',
+          headline: '\uCE74\uCE74\uC624 \uC5D4\uD130\uD14C\uC778\uBA3C\uD2B8 \u2014 \uAE00\uB85C\uBC8C \uCD5C\uACE0\uC758 IP \uC0DD\uC131 \uC5D4\uC9C4',
+          accentWord: 'IP \uC0DD\uC131 \uC5D4\uC9C4',
+          cards: [
+            { emoji: 'globe', title: '\uAE00\uB85C\uBC8C IP \uBC1C\uAD74 & \uC721\uC131', body: '\uAE00\uB85C\uBC8C \uC2DC\uC7A5 \uD765\uD589\uC774 \uAC80\uC99D\uB41C \uAC15\uB825\uD55C \uC2A4\uD1A0\uB9AC \uC790\uC0B0 \uBCF4\uC720' },
+            { emoji: 'sparkles', title: '\uC2A4\uD1A0\uB9AC\u00B7\uCE90\uB9AD\uD130\u00B7\uC138\uACC4\uAD00 \uC0DD\uC0B0\uB825', body: '\uBB34\uD55C \uD655\uC7A5\uC774 \uAC00\uB2A5\uD55C \uB3C5\uCC3D\uC801\uC778 \uCF58\uD150\uCE20 \uC0DD\uD0DC\uACC4 \uAD6C\uCD95' },
+            { emoji: 'people', title: '\uAC80\uC99D\uB41C \uD32C\uB364 \uD615\uC131 \uAD6C\uC870', body: '\uD50C\uB7AB\uD3FC \uAE30\uBC18\uC758 \uAC15\uB825\uD55C \uC720\uC800 \uC720\uC785 \uBC0F \uCEE4\uBBA4\uB2C8\uD2F0 \uD30C\uC6CC' }
+          ]
+        },
+        {
+          type: 'icon-card-grid',
+          eyebrow: 'Problem',
+          headline: 'IP\uB4E4\uC774 \uC0B4\uC544 \uC788\uC9C0 \uC54A\uACE0 \uC27C\uACE0 \uC788\uC2B5\uB2C8\uB2E4',
+          accentWord: '\uC27C\uACE0 \uC788\uC2B5\uB2C8\uB2E4',
+          cards: [
+            { emoji: 'tv', title: '\uC5F0\uC7AC/\uBC29\uC1A1 \uC2DC\uC810\uC5D0\uB9CC \uC18C\uBE44', body: '\uC8FC\uB85C \uC5F0\uC7AC, \uBC29\uC1A1 \uC2DC\uC810\uC5D0\uB9CC \uC18C\uBE44\uB418\uACE0 \uB098\uBA38\uC9C0 \uC2DC\uAC04\uC740 \uC27C\uB294 IP' },
+            { emoji: 'speech', title: '\uB2E8\uBC29\uD5A5\uC801 \uCF58\uD150\uCE20 \uC18C\uBE44', body: '\uD32C\uACFC\uC758 \uC18C\uD1B5\uC774 \uBD80\uC871\uD55C \uB2E8\uBC29\uD5A5\uC801 \uCF58\uD150\uCE20 \uC18C\uBE44 \uAD6C\uC870' },
+            { emoji: 'clock', title: 'IP\uAC00 24\uC2DC\uAC04 \uC77C\uD558\uC9C0 \uBABB\uD568', body: 'IP\uAC00 \uC0B4\uC544\uC11C \uD32C\uACFC \uC18C\uD1B5\uD558\uACE0 \uC218\uC775\uC744 \uB9CC\uB4DC\uB294 \uAD6C\uC870\uAC00 \uC5C6\uC74C' }
+          ],
+          darkBanner: { text: '\uAC15\uB825\uD55C IP\uAC00 \uC788\uC9C0\uB9CC \u2014 24\uC2DC\uAC04 \uC0B4\uC544 \uC228\uC26C\uC9C0 \uBABB\uD569\uB2C8\uB2E4.', accentPart: '24\uC2DC\uAC04 \uC0B4\uC544 \uC228\uC26C\uC9C0 \uBABB\uD569\uB2C8\uB2E4.' }
+        },
+        {
+          type: 'icon-card-grid',
+          eyebrow: 'Solution',
+          headline: 'IP \u2192 AI \uC544\uBC14\uD0C0 \uCEF4\uD398\uB2C8\uC5B8, \uBC84\uCD94\uC5BC \uC544\uC774\uB3CC',
+          accentWord: 'AI \uC544\uBC14\uD0C0',
+          cards: [
+            { emoji: 'rocket', title: '\uD558\uB098\uC758 IP, \uB2E4\uC911 \uD655\uC7A5', body: '\uB2E8\uC77C IP\uB97C \uAE30\uBC18\uC73C\uB85C \uB2E4\uC591\uD55C \uB514\uC9C0\uD138 \uC5D0\uC14B\uC744 \uC0DD\uC131\uD558\uC5EC \uCF58\uD150\uCE20 \uD65C\uC6A9 \uAC00\uCE58\uB97C \uADF9\uB300\uD654' },
+            { emoji: 'puzzle', title: '\uC138\uACC4\uAD00\u00B7\uCE90\uB9AD\uD130 \uC77C\uAD00\uC131 \uC720\uC9C0', body: 'AI \uAE30\uC220\uC744 \uD1B5\uD574 \uBAA8\uB4E0 \uD655\uC7A5 \uCC44\uB110\uC5D0\uC11C \uC77C\uAD00\uB41C \uCE90\uB9AD\uD130 \uACBD\uD5D8\uC744 \uC81C\uACF5' },
+            { emoji: 'handshake', title: '\uAD00\uACC4\uC5D0\uC11C \uACBD\uD5D8, \uB9E4\uCD9C\uB85C', body: '\uC544\uBC14\uD0C0\uC640\uC758 \uC815\uC11C\uC801 \uAD50\uAC10\uC774 \uC720\uC800 \uACBD\uD5D8\uC744 \uB118\uC5B4 \uC218\uC775\uC73C\uB85C \uC774\uC5B4\uC9C0\uB294 BM \uAD6C\uCD95' },
+            { emoji: 'megaphone', title: '\uC804\uBC29\uC704\uC801 \uCC44\uB110 \uD655\uC7A5', body: '\uC6F9, \uBAA8\uBC14\uC77C\uC744 \uB118\uC5B4 \uC624\uD504\uB77C\uC778\uAE4C\uC9C0 \uACBD\uACC4 \uC5C6\uB294 IP \uACBD\uD5D8\uC744 \uC81C\uACF5' }
+          ]
+        }
+      ]
+    },
+    'splash-cover': {
+      type: 'splash', variant: 'name_top',
+      title: ['Lumi, your child\'s first', 'English friend.'],
+      titleLang: 'en',
+      subtitle: 'AI tutor that grows with your child',
+      presenter: { name: '박나래 | Founder & CEO', email: 'nara@lumilearning.ai' }
+    },
+    'splash-closing': {
+      type: 'splash', variant: 'email_top',
+      title: ['Let\'s give kids a friend,', 'not a feed.'],
+      titleLang: 'en', titleColor: 'accent',
+      subtitle: 'Join us as we redefine first English.',
+      presenter: { name: '박나래 | Founder & CEO', email: 'nara@lumilearning.ai' }
+    },
+    'icon-card-grid': {
+      type: 'icon-card-grid',
+      eyebrow: 'Solution',
+      headline: 'Lumi — a friend, not an app',
+      accentWord: 'Lumi',
+      lead: { subtitle: '친구이자 매일의 모험.', body: 'AI 캐릭터가 아이 이름을 부르며 매일 새로운 모험을 함께함.' },
+      cards: [
+        { title: 'Personal greeting', body: '아이 이름과 관심사를 기억하고 매일 인사' },
+        { title: 'Story-driven play', body: '정해진 quiz 가 아니라 매일 다른 미니 모험' },
+        { title: 'Adaptive level', body: '아이의 발음과 어휘에 맞춰 자동 난이도 조정' },
+        { title: 'Emotion-aware', body: '표정과 목소리로 아이 기분을 읽고 반응' }
+      ]
+    },
+    'stat-card-grid': {
+      type: 'stat-card-grid',
+      eyebrow: 'Market',
+      headline: '글로벌 EdTech 시장의 4가지 흐름',
+      accentWord: '4가지 흐름',
+      cards: [
+        { title: 'K-12 EdTech', sub: '전 세계 K-12 디지털 교육', label: '2030 시장규모', stat: '$680B' },
+        { title: 'AI Tutor 침투', sub: 'AI 튜터 사용 학생 비율', label: '2025E', stat: '42%' },
+        { title: '유아 영어 시장', sub: '한국 유아 영어 학습 시장', label: '2024', stat: '₩2.3T' },
+        { title: '월 평균 사용 시간', sub: 'EdTech 앱 평균 retention', label: 'Lumi 목표', stat: '45min' }
+      ],
+      darkBanner: { text: '2030년 — AI 가 친구가 되는 순간, EdTech 의 승자가 갈립니다.', accentPart: 'EdTech 의 승자가 갈립니다.' }
+    },
+    'stat-card-footer': {
+      type: 'stat-card-grid',
+      eyebrow: 'Traction',
+      headline: '\uBCA0\uD0C0 90\uC77C \u2014 \uAC80\uC99D\uB41C engagement',
+      accentWord: '\uAC80\uC99D\uB41C engagement',
+      lead: { subtitle: '\uC11C\uC6B8/\uBD80\uC0B0 30\uAC1C \uAC00\uC815.', body: '2025\uB144 1\uC6D4~3\uC6D4 \uBCA0\uD0C0.' },
+      cards: [
+        { title: 'Daily active rate', sub: '\uC5C5\uACC4 \uD3C9\uADE0 12%', label: 'Lumi \uBCA0\uD0C0', stat: '78%' },
+        { title: '\uC7AC\uBC29\uBB38 (D7)', sub: '\uC5C5\uACC4 \uD3C9\uADE0 8%', label: 'Lumi \uBCA0\uD0C0', stat: '65%' },
+        { title: '\uBD80\uBAA8 NPS', sub: '\uC5C5\uACC4 \uD3C9\uADE0 +18', label: 'Lumi \uBCA0\uD0C0', stat: '+72' }
+      ],
+      footerBar: [
+        { label: '\uBCA0\uD0C0 \uAC00\uC815', value: '30' },
+        { label: '\uCD1D \uC0AC\uC6A9 \uC2DC\uAC04', value: '4,200 min' },
+        { label: '\uCD9C\uC2DC \uC608\uC815', value: '2026 Q3' }
+      ]
+    },
+    'compare-table': {
+      type: 'compare-table',
+      eyebrow: 'Market Landscape',
+      headline: '기존 CGM 앱 vs Medira',
+      accentWord: 'Medira',
+      headers: ['기존 CGM 앱', 'Medira'],
+      rows: [
+        ['\uD608\uB2F9 \uBAA8\uB2C8\uD130\uB9C1', '\uC218\uB3D9 \uD655\uC778', '\uC2E4\uC2DC\uAC04 AI \uC608\uCE21'],
+        ['\uC2DD\uC0AC \uAD00\uB9AC', '\uC218\uB3D9 \uC785\uB825', '\uC0AC\uC9C4 \uC790\uB3D9 \uBD84\uC11D'],
+        ['\uC758\uC0AC \uC5F0\uB3D9', 'PDF \uB0B4\uBCF4\uB0B4\uAE30', '\uC2E4\uC2DC\uAC04 \uB300\uC2DC\uBCF4\uB4DC'],
+        ['\uD589\uB3D9 \uAC1C\uC785', '\uC5C6\uC74C', '\uB2A5\uB3D9 \uC54C\uB9BC + \uCF54\uCE6D'],
+        ['\uAC00\uACA9', '$29/mo', '$19/mo']
+      ]
+    },
+    'biz-model': {
+      type: 'biz-model',
+      eyebrow: 'Business Model',
+      headline: 'B2B2C \u2014 \uBCD1\uC6D0\uC774 \uCC98\uBC29\uD558\uACE0, \uD658\uC790\uAC00 \uC4F4\uB2E4',
+      accentWord: '\uBCD1\uC6D0\uC774 \uCC98\uBC29\uD558\uACE0, \uD658\uC790\uAC00 \uC4F4\uB2E4',
+      lead: { subtitle: '\uC774\uC911 \uC218\uC775 \uAD6C\uC870', body: '\uBCD1\uC6D0\uC5D0\uB294 SaaS \uB77C\uC774\uC120\uC2A4, \uD658\uC790\uC5D0\uAC8C\uB294 \uD504\uB9AC\uBBF8\uC5C4 \uAD6C\uB3C5.' },
+      cards: [
+        { title: '\uBCD1\uC6D0 SaaS', body: '\uC6D4 500K/\uC758\uC0AC \uB77C\uC774\uC120\uC2A4' },
+        { title: '\uD658\uC790 \uAD6C\uB3C5', body: '\uBB34\uB8CC \uAE30\uBCF8 + 19K/mo \uD504\uB9AC\uBBF8\uC5C4' },
+        { title: '\uB370\uC774\uD130 \uB77C\uC774\uC120\uC2A4', body: '\uBE44\uC2DD\uBCC4 CGM \uB370\uC774\uD130 \uB9AC\uC11C\uCE58' }
+      ],
+      sectionTitle: '2027 \uB9E4\uCD9C \uBAA9\uD45C',
+      footerBlocks: [
+        { stat: '\u20A912B', sub: 'ARR' },
+        { stat: '340', sub: '\uD30C\uD2B8\uB108 \uBCD1\uC6D0' },
+        { stat: '85K', sub: '\uC720\uB8CC \uAD6C\uB3C5\uC790' }
+      ]
+    },
+    'problem': {
+      type: 'problem',
+      eyebrow: 'The Problem',
+      headline: '\uB2F9\uB1E8 \uAD00\uB9AC\uC758 \uD604\uC2E4: \uBC29\uCE58\uB418\uB294 90\uC77C',
+      accentWord: '\uBC29\uCE58\uB418\uB294 90\uC77C',
+      lead: { subtitle: '', body: '\uC9C4\uB2E8 \uD6C4 90\uC77C \uB0B4 \uC790\uAE30 \uAD00\uB9AC \uD3EC\uAE30\uC728 68%.' },
+      cards: [
+        { title: '\uC790\uAE30 \uAD00\uB9AC \uD3EC\uAE30\uC728', before: '32%', after: '68%', labels: ['\uC9C4\uB2E8 \uC9C1\uD6C4', '90\uC77C \uD6C4'] },
+        { title: 'CGM \uB370\uC774\uD130 \uD65C\uC6A9\uB960', before: '85%', after: '12%', labels: ['1\uC8FC\uCC28', '12\uC8FC\uCC28'] },
+        { title: '\uD569\uBCD1\uC99D \uBC1C\uC0DD\uB960', before: '8%', after: '34%', labels: ['\uAD00\uB9AC \uC2DC', '\uBC29\uCE58 \uC2DC'] }
+      ],
+      darkBanner: { text: '\uC9C4\uB2E8 \uD6C4 90\uC77C \u2014 \uBC29\uCE58\uB41C \uB370\uC774\uD130\uAC00 \uD569\uBCD1\uC99D\uC744 \uB9CC\uB4ED\uB2C8\uB2E4.', accentPart: '\uBC29\uCE58\uB41C \uB370\uC774\uD130\uAC00 \uD569\uBCD1\uC99D\uC744 \uB9CC\uB4ED\uB2C8\uB2E4.' }
+    },
+    'solution': {
+      type: 'solution',
+      eyebrow: 'Solution',
+      headline: 'Medira \u2014 \uB2F9\uC2E0\uC758 AI \uC8FC\uCE58\uC758',
+      accentWord: 'Medira',
+      lead: { subtitle: '24\uC2DC\uAC04 \uB3D9\uD589\uD558\uB294 AI', body: 'CGM \uB370\uC774\uD130\uB97C \uC2E4\uC2DC\uAC04 \uBD84\uC11D\uD574 \uC2DD\uC0AC/\uC6B4\uB3D9/\uD22C\uC57D \uD0C0\uC774\uBC0D\uC744 \uC548\uB0B4.' },
+      bulletCards: [
+        { title: '\uD658\uC790\uC6A9 \uAE30\uB2A5', items: ['\uC2E4\uC2DC\uAC04 \uD608\uB2F9 \uC608\uCE21 \uC54C\uB9BC', '\uC2DD\uC0AC \uC0AC\uC9C4 \u2192 \uD0C4\uC218\uD654\uBB3C \uCD94\uC815', '\uC8FC\uAC04 \uB9AC\uD3EC\uD2B8 PDF \uC790\uB3D9 \uC0DD\uC131'] },
+        { title: '\uC758\uC0AC\uC6A9 \uB300\uC2DC\uBCF4\uB4DC', items: ['\uD658\uC790\uBCC4 \uD608\uB2F9 \uD328\uD134 \uD788\uD2B8\uB9F5', '\uC774\uC0C1\uCE58 \uC790\uB3D9 \uD50C\uB798\uADF8', '\uCC98\uBC29 \uC870\uC815 \uC81C\uC548 AI'] }
+      ],
+      personCards: [
+        { name: '\uAE40\uC218\uC9C4', role: 'Co-founder & CEO', highlights: '\u524D \uC11C\uC6B8\uB300\uBCD1\uC6D0 \uB0B4\uBD84\uBE44\uB0B4\uACFC' },
+        { name: '\uBC15\uC815\uD6C8', role: 'CTO', highlights: '\u524D Google Health ML Lead' }
+      ]
+    },
+    'mixed-grid': {
+      type: 'mixed-grid',
+      eyebrow: 'Traction',
+      headline: '12\uAC1C\uC6D4 \u2014 \uAC80\uC99D\uB41C \uC784\uC0C1 \uD6A8\uACFC',
+      accentWord: '\uAC80\uC99D\uB41C \uC784\uC0C1 \uD6A8\uACFC',
+      cells: [
+        { kind: 'stat-hero', title: '\uD3C9\uADE0 \uD608\uB2F9 \uBC94\uC704 \uB0B4 \uC2DC\uAC04', stat: '82%', sub: '\uBAA9\uD45C 70% \uB300\uBE44 +12%p' },
+        { kind: 'stat-hero', title: '\uD658\uC790 \uB9CC\uC871\uB3C4 (NPS)', stat: '+68', sub: '\uB514\uC9C0\uD138 \uD5EC\uC2A4 \uD3C9\uADE0 +22' },
+        { kind: 'labeled-list', title: '\uC784\uC0C1 \uD30C\uD2B8\uB108', groups: [{ label: '\uB300\uD559\uBCD1\uC6D0', items: '\uC11C\uC6B8\uB300 \u00B7 \uC5F0\uC138\uB300 \u00B7 \uC0BC\uC131\uC11C\uC6B8' }, { label: '1\uCC28 \uC758\uC6D0', items: '\uBA54\uB514\uD50C\uB7EC\uC2A4 \u00B7 \uD5EC\uC2A4\uC628 \u00B7 \uAD7F\uB2E5\uD130' }] },
+        { kind: 'stat-hero', title: 'HbA1c \uAC10\uC18C', stat: '-1.7%p', sub: '8.2% \u2192 6.5% (12\uAC1C\uC6D4)' }
+      ]
+    },
+    'step-flow': {
+      type: 'step-flow',
+      eyebrow: 'How It Works',
+      headline: '5\uBD84 \uC548\uC5D0 \uC2DC\uC791\uD558\uB294 Lumi \uC758 \uD558\uB8E8',
+      accentWord: 'Lumi \uC758 \uD558\uB8E8',
+      steps: [
+        { icon: '\uD83D\uDCF2', title: 'Open the app', desc: 'QR or app store, 30\uCD08' },
+        { icon: '\uD83D\uDC4B', title: 'Lumi greets', desc: '\uC774\uB984, \uC5B4\uC81C \uD55C \uC77C \uAE30\uC5B5' },
+        { icon: '\uD83C\uDFAE', title: 'Play & learn', desc: '\uC624\uB298\uC758 \uBAA8\uD5D8 (5~10\uBD84)' }
+      ],
+      darkBanner: { text: 'No homework. No drills. Just play.', accentPart: 'Just play.' }
+    }
+  };
+
+  document.getElementById('preset').addEventListener('change', (e) => {
+    const val = e.target.value;
+    if (presets[val]) {
+      document.getElementById('json').value = JSON.stringify(presets[val], null, 2);
+    }
+  });
+
+  const EMOJI_CDN = 'https://raw.githubusercontent.com/microsoft/fluentui-emoji/main/assets/';
+  const EMOJI_MAP = {
+    'waving_hand': 'Waving%20hand/Default/3D/waving_hand_3d_default.png',
+    'game_die': 'Game%20die/3D/game_die_3d.png',
+    'glowing_star': 'Glowing%20star/3D/glowing_star_3d.png',
+    'growing_heart': 'Growing%20heart/3D/growing_heart_3d.png',
+    'fire': 'Fire/3D/fire_3d.png',
+    'globe': 'Globe%20with%20meridians/3D/globe_with_meridians_3d.png',
+    'hospital': 'Hospital/3D/hospital_3d.png',
+    'mobile_phone': 'Mobile%20phone/3D/mobile_phone_3d.png',
+    'chart_increasing': 'Chart%20increasing/3D/chart_increasing_3d.png',
+    'money_wings': 'Money%20with%20wings/3D/money_with_wings_3d.png',
+    'broken_heart': 'Broken%20heart/3D/broken_heart_3d.png',
+    'sleeping': 'Sleeping%20face/3D/sleeping_face_3d.png',
+    'rocket': 'Rocket/3D/rocket_3d.png',
+    'sparkles': 'Sparkles/3D/sparkles_3d.png',
+    'link': 'Link/3D/link_3d.png',
+    'movie': 'Clapper%20board/3D/clapper_board_3d.png',
+    'speech': 'Speech%20balloon/3D/speech_balloon_3d.png',
+    'clock': 'Alarm%20clock/3D/alarm_clock_3d.png',
+    'robot': 'Robot/3D/robot_3d.png',
+    'puzzle': 'Puzzle%20piece/3D/puzzle_piece_3d.png',
+    'handshake': 'Handshake/3D/handshake_3d.png',
+    'megaphone': 'Megaphone/3D/megaphone_3d.png',
+    'target': 'Bullseye/3D/bullseye_3d.png',
+    'gem': 'Gem%20stone/3D/gem_stone_3d.png',
+    'people': 'Busts%20in%20silhouette/3D/busts_in_silhouette_3d.png',
+    'tv': 'Television/3D/television_3d.png',
+    'joystick': 'Joystick/3D/joystick_3d.png',
+  };
+
+  async function fetchEmoji(name) {
+    const path = EMOJI_MAP[name];
+    if (!path) return null;
+    try {
+      const res = await fetch(EMOJI_CDN + path);
+      const buf = await res.arrayBuffer();
+      return Array.from(new Uint8Array(buf));
+    } catch { return null; }
+  }
+
+  function collectEmojis(data) {
+    const emojis = new Set();
+    function walk(obj) {
+      if (!obj) return;
+      if (typeof obj === 'object') {
+        if (obj.emoji) emojis.add(obj.emoji);
+        Object.values(obj).forEach(walk);
+      }
+      if (Array.isArray(obj)) obj.forEach(walk);
+    }
+    walk(data);
+    return [...emojis];
+  }
+
+  document.getElementById('generate').addEventListener('click', async () => {
+    const raw = document.getElementById('json').value;
+    try {
+      const data = JSON.parse(raw);
+      const emojiNames = collectEmojis(data);
+      const emojiBytes = {};
+      for (const name of emojiNames) {
+        const bytes = await fetchEmoji(name);
+        if (bytes) emojiBytes[name] = bytes;
+      }
+      parent.postMessage({ pluginMessage: { type: 'generate', data, emojiBytes } }, '*');
+    } catch (err) {
+      parent.postMessage({ pluginMessage: { type: 'error', message: 'Invalid JSON: ' + err.message } }, '*');
+    }
+  });
+</script>
+</body>
+</html>
