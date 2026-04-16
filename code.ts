@@ -1090,6 +1090,9 @@ async function renderPrimitive(parent: FrameNode, p: CustomPrimitive, opts: Card
     case 'growth-stat':
       await createGrowthStatCard(parent, { title: p.title, before: p.before, after: p.after, labels: p.labels || [] }, opts);
       break;
+    case 'image':
+      await createImagePlaceholder(parent, { label: p.label || p.title || '', caption: p.caption }, opts);
+      break;
     default:
       const fallback = createCard(parent, 'Unknown: ' + p.primitive, { ...opts, shadow: true });
       await createText(fallback, {
@@ -1131,11 +1134,13 @@ async function createCustomSlide(data: CustomSlideData): Promise<FrameNode> {
 
   const rowsH = contentBottom - contentTop - (hasFooter ? footerH + S.gapSm : 0);
   const gapTotal = S.gapSm * (totalRows - 1);
-  const defaultRowH = (rowsH - gapTotal) / totalRows;
+  const fixedH = data.rows.reduce((sum, r) => sum + (r.height || 0), 0);
+  const flexRows = data.rows.filter(r => !r.height).length;
+  const flexRowH = flexRows > 0 ? (rowsH - gapTotal - fixedH) / flexRows : 0;
 
   let currentY = contentTop;
   for (const row of data.rows) {
-    const rowH = row.height || defaultRowH;
+    const rowH = row.height || flexRowH;
     const cols = row.cards.length;
     const cardW = (1760 - S.gapSm * (cols - 1)) / cols;
 
@@ -1188,6 +1193,154 @@ async function createCustomSlide(data: CustomSlideData): Promise<FrameNode> {
   return slide;
 }
 
+// ─── DataTable Slide ───
+interface DataTableData {
+  type: 'data-table';
+  eyebrow: string;
+  headline: string;
+  accentWord?: string;
+  headers: string[];
+  rows: string[][];
+  summary?: { label: string; value: string };
+  columnWidths?: number[];
+}
+
+async function createDataTableSlide(data: DataTableData): Promise<FrameNode> {
+  const slide = createSlideFrame('Slide — DataTable');
+  await createHeader(slide, data.eyebrow, data.headline, data.accentWord);
+
+  const tableX = S.margin;
+  const tableY = 310;
+  const tableW = 1760;
+  const hasSummary = !!data.summary;
+  const headerH = 48;
+  const rowH = 44;
+  const summaryH = hasSummary ? 80 : 0;
+  const totalRows = data.rows.length;
+  const gaps = totalRows + (hasSummary ? 1 : 0);
+  const tableH = headerH + totalRows * rowH + summaryH + gaps;
+  const maxTableH = CANVAS_H - S.margin - tableY;
+  const actualRowH = tableH > maxTableH ? Math.floor((maxTableH - headerH - summaryH - gaps) / totalRows) : rowH;
+  const actualTableH = maxTableH;
+
+  const container = createCard(slide, 'DataTable', {
+    x: tableX, y: tableY, w: tableW, h: actualTableH, shadow: true,
+  });
+  container.clipsContent = true;
+
+  const cols = data.headers.length;
+  const colWidths: number[] = data.columnWidths
+    ? data.columnWidths.map(w => w * tableW / data.columnWidths!.reduce((a, b) => a + b, 0))
+    : data.headers.map(() => tableW / cols);
+
+  const cellFontSize = 22;
+  const cellLh = 1.45;
+  const cellLs = -0.02;
+  const cellPad = 20;
+  let cy = 0;
+
+  // Header row
+  let cx = 0;
+  for (let c = 0; c < cols; c++) {
+    const cellRect = figma.createRectangle();
+    cellRect.x = cx; cellRect.y = cy;
+    cellRect.resize(colWidths[c], headerH);
+    cellRect.fills = solid(C.g800);
+    container.appendChild(cellRect);
+
+    const hAlign: 'LEFT' | 'CENTER' = c === 0 ? 'LEFT' : 'CENTER';
+    await createText(container, {
+      text: data.headers[c], x: cx + cellPad, y: cy + (headerH - 32) / 2, w: colWidths[c] - cellPad * 2,
+      size: cellFontSize, weight: 700, lh: cellLh, ls: cellLs, color: C.white, align: hAlign,
+    });
+    cx += colWidths[c];
+  }
+  cy += headerH + 1;
+
+  // Data rows
+  for (let r = 0; r < totalRows; r++) {
+    cx = 0;
+    const isEven = r % 2 === 0;
+    for (let c = 0; c < cols; c++) {
+      const cellRect = figma.createRectangle();
+      cellRect.x = cx; cellRect.y = cy;
+      cellRect.resize(colWidths[c], actualRowH);
+      cellRect.fills = solid(isEven ? C.g100 : C.white);
+      container.appendChild(cellRect);
+
+      const cellText = data.rows[r][c] || '';
+      const cellAlign: 'LEFT' | 'CENTER' | 'RIGHT' = c === 0 ? 'LEFT' : 'CENTER';
+      await createText(container, {
+        text: cellText, x: cx + cellPad, y: cy + (actualRowH - 32) / 2, w: colWidths[c] - cellPad * 2,
+        size: cellFontSize, weight: 500, lh: cellLh, ls: cellLs, color: C.black, align: cellAlign,
+      });
+      cx += colWidths[c];
+    }
+    cy += actualRowH + 1;
+  }
+
+  // Summary row — fills to container bottom
+  if (data.summary) {
+    const remainingH = actualTableH - cy;
+    const summRect = figma.createRectangle();
+    summRect.x = 0; summRect.y = cy;
+    summRect.resize(tableW, remainingH);
+    summRect.fills = solid(C.g800);
+    container.appendChild(summRect);
+
+    const sTextY = cy + (remainingH - 32) / 2;
+    await createText(container, {
+      text: data.summary.label, x: cellPad, y: sTextY, w: tableW * 0.5,
+      size: 28, weight: 700, lh: 1.45, ls: -0.02, color: C.white,
+    });
+    await createText(container, {
+      text: data.summary.value, x: tableW * 0.5, y: sTextY, w: tableW * 0.5 - cellPad,
+      size: 28, weight: 700, lh: 1.45, ls: -0.02, color: C.accent, align: 'RIGHT',
+    });
+  }
+
+  return slide;
+}
+
+// ─── ImagePlaceholder Card ───
+interface ImagePlaceholderData {
+  label: string;
+  caption?: string;
+  aspect?: string;
+}
+
+async function createImagePlaceholder(parent: FrameNode, data: ImagePlaceholderData, opts: CardOpts): Promise<FrameNode> {
+  const card = createCard(parent, `Image — ${data.label}`, { ...opts, shadow: true });
+
+  const imgPad = 16;
+  const captionH = data.caption ? 60 : 0;
+  const imgW = opts.w - imgPad * 2;
+  const imgH = opts.h - imgPad * 2 - captionH;
+
+  const imgRect = figma.createRectangle();
+  imgRect.name = 'image-area';
+  imgRect.x = imgPad;
+  imgRect.y = imgPad;
+  imgRect.resize(imgW, imgH);
+  imgRect.fills = solid(C.g100);
+  imgRect.cornerRadius = S.radiusInner;
+  card.appendChild(imgRect);
+
+  await createText(card, {
+    text: data.label, x: imgPad, y: imgPad + imgH / 2 - 20, w: imgW,
+    size: 28, weight: 600, lh: 1.45, ls: -0.02, color: C.g400, align: 'CENTER',
+  });
+
+  if (data.caption) {
+    await createText(card, {
+      text: data.caption, x: S.padCard, y: opts.h - captionH, w: opts.w - S.padCard * 2,
+      size: 22, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
+    });
+  }
+
+  return card;
+}
+
 // ─── Single Slide Router ───
 async function generateSingleSlide(data: any): Promise<FrameNode | null> {
   switch (data.type) {
@@ -1201,6 +1354,7 @@ async function generateSingleSlide(data: any): Promise<FrameNode | null> {
     case 'mixed-grid': return await createMixedGridSlide(data as MixedGridSlideData);
     case 'step-flow': return await createStepFlowSlide(data as StepFlowData);
     case 'custom': return await createCustomSlide(data as CustomSlideData);
+    case 'data-table': return await createDataTableSlide(data as DataTableData);
     default:
       figma.notify('\u26A0\uFE0F Unsupported type: ' + data.type);
       return null;
