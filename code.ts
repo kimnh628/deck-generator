@@ -299,42 +299,82 @@ interface IconCardData {
   emoji?: string;
   title: string;
   body: string;
+  dark?: boolean;
+  stat?: string;
+  statSub?: string;
 }
 
 async function createIconCard(parent: FrameNode, data: IconCardData, opts: CardOpts): Promise<FrameNode> {
-  const card = createCard(parent, `IconCard — ${data.title}`, { ...opts, shadow: true });
-  const contentUnits = data.title.length + data.body.length;
+  const isDark = data.dark || false;
+  const card = createCard(parent, `IconCard — ${data.title}`, {
+    ...opts, bg: isDark ? C.g800 : C.white, shadow: !isDark,
+  });
+  const contentUnits = data.title.length + data.body.length + (data.stat || '').length;
   const d = opts.density || detectDensity(opts.h, contentUnits);
   const s = ds(d);
 
-  const pad = 50;
-  const emojiSize = Math.round(48 * s.emoji);
+  const pad = S.padCard;
+  const titleColor = isDark ? C.white : C.black;
+  const bodyColor = isDark ? C.g400 : C.g500;
+  const emojiSize = data.stat ? 87 : Math.round(48 * s.emoji);
 
   const emojiRect = figma.createRectangle();
   emojiRect.name = 'emoji';
   emojiRect.x = pad;
-  emojiRect.y = 40;
+  emojiRect.y = pad;
   emojiRect.resize(emojiSize, emojiSize);
   if (data.emoji && _emojiBytes[data.emoji]) {
     const img = figma.createImage(new Uint8Array(_emojiBytes[data.emoji]));
     emojiRect.fills = [{ type: 'IMAGE', imageHash: img.hash, scaleMode: 'FIT' }];
   } else {
-    emojiRect.fills = solid(C.g100);
-    emojiRect.cornerRadius = 8;
+    emojiRect.fills = solid(isDark ? C.g700 : C.g100);
+    emojiRect.cornerRadius = 16;
   }
   card.appendChild(emojiRect);
 
-  const titleY = 40 + emojiSize + S.gapXs;
+  const hasStat = !!data.stat;
+  const titleY = hasStat ? pad : pad + emojiSize + S.gapXs;
+  const titleW = hasStat ? opts.w - pad * 3 - emojiSize : opts.w - pad * 2;
   const titleNode = await createText(card, {
-    text: data.title, x: pad, y: titleY, w: opts.w - pad * 2,
-    size: scaledFont(36, s.font, 'title'), weight: 700, lh: 1.45 * s.lh, ls: -0.02, color: C.black,
+    text: data.title, x: pad, y: titleY, w: titleW,
+    size: scaledFont(36, s.font, 'title'), weight: 700, lh: 1.45 * s.lh, ls: -0.02, color: titleColor,
   });
 
-  const bodyY = titleY + titleNode.height + S.gapLg;
-  await createText(card, {
-    text: data.body, x: pad, y: bodyY, w: opts.w - pad * 2,
-    size: scaledFont(28, s.font, 'body'), weight: 500, lh: 1.45 * s.lh, ls: -0.02, color: C.g500,
-  });
+  if (data.stat) {
+    // stat mode: emoji top-right, text stack left
+    emojiRect.x = opts.w - pad - emojiSize;
+    emojiRect.y = pad;
+
+    const textW = opts.w - pad * 3 - emojiSize;
+    const bodyY = titleY + titleNode.height + 4;
+    await createText(card, {
+      text: data.body, x: pad, y: bodyY, w: textW,
+      size: scaledFont(24, s.font, 'sub'), weight: 500, lh: 1.45 * s.lh, ls: -0.02, color: bodyColor,
+    });
+
+    const statSize = 36;
+    const statLineH = Math.round(statSize * 1.45);
+    const subSize = 24;
+    const subLineH = data.statSub ? Math.round(subSize * 1.45) : 0;
+    const statY = opts.h - pad - subLineH - statLineH;
+
+    await createText(card, {
+      text: data.stat, x: pad, y: statY, w: opts.w - pad * 2,
+      size: statSize, weight: 700, lh: 1.45, ls: -0.02, color: C.accent,
+    });
+    if (data.statSub) {
+      await createText(card, {
+        text: data.statSub, x: pad, y: statY + statLineH, w: opts.w - pad * 2,
+        size: subSize, weight: 500, lh: 1.45, ls: -0.02, color: bodyColor,
+      });
+    }
+  } else {
+    const bodyY = titleY + titleNode.height + S.gapLg;
+    await createText(card, {
+      text: data.body, x: pad, y: bodyY, w: opts.w - pad * 2,
+      size: scaledFont(28, s.font, 'body'), weight: 500, lh: 1.45 * s.lh, ls: -0.02, color: bodyColor,
+    });
+  }
 
   return card;
 }
@@ -1207,7 +1247,7 @@ interface CustomSlideData {
 async function renderPrimitive(parent: FrameNode, p: CustomPrimitive, opts: CardOpts): Promise<void> {
   switch (p.primitive) {
     case 'icon-card':
-      await createIconCard(parent, { emoji: p.emoji, title: p.title, body: p.body }, opts);
+      await createIconCard(parent, { emoji: p.emoji, title: p.title, body: p.body, dark: p.dark, stat: p.stat, statSub: p.statSub }, opts);
       break;
     case 'stat-card':
       await createStatCard(parent, { title: p.title, sub: p.sub || '', label: p.label || '', stat: p.stat }, opts);
@@ -1391,7 +1431,7 @@ async function createDataTableSlide(data: DataTableData): Promise<FrameNode> {
     ? data.columnWidths.map(w => w * tableW / data.columnWidths!.reduce((a, b) => a + b, 0))
     : data.headers.map(() => tableW / cols);
 
-  const cellFontSize = 22;
+  const cellFontSize = rowH >= 80 ? 28 : 22;
   const cellLh = 1.45;
   const cellLs = -0.02;
   const cellPad = 20;
