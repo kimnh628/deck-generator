@@ -526,8 +526,24 @@
   }
 
   function sanitizeJson(text) {
-    return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+    let result = '';
+    for (let i = 0; i < text.length; i++) {
+      const code = text.charCodeAt(i);
+      if (code === 10 || code === 13 || code === 9 || code >= 32) {
+        if (code !== 0x200B && code !== 0x200C && code !== 0x200D &&
+            code !== 0x2060 && code !== 0xFEFF && code !== 0x00AD && code !== 0x7F) {
+          result += text[i];
+        }
+      }
+    }
+    return result;
   }
+
+  document.getElementById('json').addEventListener('paste', (e) => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+    document.getElementById('json').value = sanitizeJson(text);
+  });
 
   document.getElementById('generate').addEventListener('click', async () => {
     const raw = sanitizeJson(document.getElementById('json').value);
