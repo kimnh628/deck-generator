@@ -59,6 +59,10 @@ function fontName(weight) {
 function solid(color) {
     return [{ type: 'SOLID', color }];
 }
+function keepWords(text) {
+    const WJ = '\u2060';
+    return text.split('\n').map(line => line.split(' ').map(word => word.split('').join(WJ)).join(' ')).join('\n');
+}
 async function createText(parent, opts) {
     const t = figma.createText();
     t.fontName = fontName(opts.weight);
@@ -66,7 +70,7 @@ async function createText(parent, opts) {
     t.lineHeight = { value: opts.size * opts.lh, unit: 'PIXELS' };
     t.letterSpacing = { value: opts.size * opts.ls, unit: 'PIXELS' };
     t.fills = solid(opts.color);
-    t.characters = opts.text;
+    t.characters = keepWords(opts.text);
     t.x = opts.x;
     t.y = opts.y;
     if (opts.w) {
@@ -1024,15 +1028,14 @@ async function createDataTableSlide(data) {
     const tableY = 310;
     const tableW = 1760;
     const hasSummary = !!data.summary;
-    const headerH = 48;
-    const rowH = 44;
-    const summaryH = hasSummary ? 80 : 0;
     const totalRows = data.rows.length;
-    const gaps = totalRows + (hasSummary ? 1 : 0);
-    const tableH = headerH + totalRows * rowH + summaryH + gaps;
+    const allRows = totalRows + 1 + (hasSummary ? 1 : 0);
     const maxTableH = CANVAS_H - S.margin - tableY;
-    const actualRowH = tableH > maxTableH ? Math.floor((maxTableH - headerH - summaryH - gaps) / totalRows) : rowH;
-    const actualTableH = maxTableH;
+    const gaps = allRows;
+    const rowH = Math.floor((maxTableH - gaps) / allRows);
+    const headerH = rowH;
+    const actualRowH = rowH;
+    const actualTableH = allRows * (rowH + 1);
     const container = createCard(slide, 'DataTable', {
         x: tableX, y: tableY, w: tableW, h: actualTableH, shadow: true,
     });
@@ -1046,19 +1049,20 @@ async function createDataTableSlide(data) {
     const cellLs = -0.02;
     const cellPad = 20;
     let cy = 0;
-    // Header row
+    // Header row (light gray)
     let cx = 0;
     for (let c = 0; c < cols; c++) {
         const cellRect = figma.createRectangle();
         cellRect.x = cx;
         cellRect.y = cy;
         cellRect.resize(colWidths[c], headerH);
-        cellRect.fills = solid(C.g800);
+        cellRect.fills = solid(C.g100);
         container.appendChild(cellRect);
         const hAlign = c === 0 ? 'LEFT' : 'CENTER';
+        const hPad = c === 0 ? S.padCard : cellPad;
         await createText(container, {
-            text: data.headers[c], x: cx + cellPad, y: cy + (headerH - 32) / 2, w: colWidths[c] - cellPad * 2,
-            size: cellFontSize, weight: 700, lh: cellLh, ls: cellLs, color: C.white, align: hAlign,
+            text: data.headers[c], x: cx + hPad, y: cy + (headerH - 32) / 2, w: colWidths[c] - hPad - cellPad,
+            size: cellFontSize, weight: 700, lh: cellLh, ls: cellLs, color: C.g500, align: hAlign,
         });
         cx += colWidths[c];
     }
@@ -1066,41 +1070,44 @@ async function createDataTableSlide(data) {
     // Data rows
     for (let r = 0; r < totalRows; r++) {
         cx = 0;
-        const isEven = r % 2 === 0;
         for (let c = 0; c < cols; c++) {
             const cellRect = figma.createRectangle();
             cellRect.x = cx;
             cellRect.y = cy;
             cellRect.resize(colWidths[c], actualRowH);
-            cellRect.fills = solid(isEven ? C.g100 : C.white);
+            cellRect.fills = solid(c === 0 ? C.g100 : C.white);
             container.appendChild(cellRect);
             const cellText = data.rows[r][c] || '';
             const cellAlign = c === 0 ? 'LEFT' : 'CENTER';
+            const cPad = c === 0 ? S.padCard : cellPad;
+            const cellWeight = c === 0 ? 700 : 500;
             await createText(container, {
-                text: cellText, x: cx + cellPad, y: cy + (actualRowH - 32) / 2, w: colWidths[c] - cellPad * 2,
-                size: cellFontSize, weight: 500, lh: cellLh, ls: cellLs, color: C.black, align: cellAlign,
+                text: cellText, x: cx + cPad, y: cy + (actualRowH - 32) / 2, w: colWidths[c] - cPad - cellPad,
+                size: cellFontSize, weight: cellWeight, lh: cellLh, ls: cellLs, color: C.black, align: cellAlign,
             });
             cx += colWidths[c];
         }
         cy += actualRowH + 1;
     }
-    // Summary row — fills to container bottom
+    // Summary row — same height, bottom radius matches container
     if (data.summary) {
-        const remainingH = actualTableH - cy;
+        const summH = actualTableH - cy;
         const summRect = figma.createRectangle();
         summRect.x = 0;
         summRect.y = cy;
-        summRect.resize(tableW, remainingH);
+        summRect.resize(tableW, summH);
         summRect.fills = solid(C.g800);
         container.appendChild(summRect);
-        const sTextY = cy + (remainingH - 32) / 2;
+        const sTextY = cy + (summH - 32) / 2;
+        const lastColX = colWidths.slice(0, -1).reduce((sum, w) => sum + w, 0);
+        const lastColW = colWidths[colWidths.length - 1];
         await createText(container, {
-            text: data.summary.label, x: cellPad, y: sTextY, w: tableW * 0.5,
+            text: data.summary.label, x: S.padCard, y: sTextY, w: lastColX - S.padCard - cellPad,
             size: 28, weight: 700, lh: 1.45, ls: -0.02, color: C.white,
         });
         await createText(container, {
-            text: data.summary.value, x: tableW * 0.5, y: sTextY, w: tableW * 0.5 - cellPad,
-            size: 28, weight: 700, lh: 1.45, ls: -0.02, color: C.accent, align: 'RIGHT',
+            text: data.summary.value, x: lastColX + cellPad, y: sTextY, w: lastColW - cellPad * 2,
+            size: 28, weight: 700, lh: 1.45, ls: -0.02, color: C.accent, align: 'CENTER',
         });
     }
     return slide;
