@@ -1,5 +1,5 @@
 // Deck Generator — Figma Plugin
-// design.md v2.3 tokens → Figma nodes
+// design.md v2.4 tokens → Figma nodes
 
 // ─── Color Tokens ───
 function hex(h: string): RGB {
@@ -33,13 +33,11 @@ const S = {
 const CANVAS_W = 1920;
 const CANVAS_H = 1080;
 
-// ─── Emoji image cache (set per generate call) ───
+// ─── Image caches (set per generate call) ───
 let _emojiBytes: Record<string, number[]> = {};
+let _imageBytes: Record<string, number[]> = {};
 
 // ─── Font helpers ───
-const FONT_PRETENDARD = { family: 'Pretendard', style: 'Medium' };
-const FONT_INTER = { family: 'Inter', style: 'Medium' };
-
 async function loadFonts() {
   const fonts: FontName[] = [
     { family: 'Pretendard', style: 'Medium' },
@@ -105,10 +103,41 @@ function createSlideFrame(name: string): FrameNode {
   return frame;
 }
 
+// ─── Density System ───
+// Padding (40px) and gap (20px) are always fixed per v2.4 rules.
+// Only font size, line height, and emoji scale adapt.
+type Density = 'normal' | 'dense' | 'compact';
+
+interface DensityScale { font: number; lh: number; emoji: number; }
+
+const DENSITY_SCALES: Record<Density, DensityScale> = {
+  normal:  { font: 1.0,  lh: 1.0,  emoji: 1.0  },
+  dense:   { font: 0.88, lh: 0.95, emoji: 0.85 },
+  compact: { font: 0.78, lh: 0.88, emoji: 0.75 },
+};
+
+const MIN_FONT: Record<string, number> = { title: 28, body: 24, sub: 20, stat: 42 };
+
+function scaledFont(base: number, scale: number, role: string): number {
+  return Math.max(Math.round(base * scale), MIN_FONT[role] || 16);
+}
+
+function detectDensity(cardH: number, contentUnits: number): Density {
+  const fillRatio = (contentUnits * 3 + 120) / cardH;
+  if (fillRatio <= 0.9) return 'normal';
+  if (fillRatio <= 1.3) return 'dense';
+  return 'compact';
+}
+
+function ds(density: Density): DensityScale {
+  return DENSITY_SCALES[density];
+}
+
 // ─── Card Factory ───
 interface CardOpts {
   x: number; y: number; w: number; h: number;
   bg?: RGB; radius?: number; shadow?: boolean;
+  density?: Density;
 }
 
 function createCard(parent: FrameNode, name: string, opts: CardOpts): FrameNode {
@@ -265,12 +294,18 @@ interface IconCardData {
 
 async function createIconCard(parent: FrameNode, data: IconCardData, opts: CardOpts): Promise<FrameNode> {
   const card = createCard(parent, `IconCard — ${data.title}`, { ...opts, shadow: true });
+  const contentUnits = data.title.length + data.body.length;
+  const d = opts.density || detectDensity(opts.h, contentUnits);
+  const s = ds(d);
+
+  const pad = 50;
+  const emojiSize = Math.round(48 * s.emoji);
 
   const emojiRect = figma.createRectangle();
   emojiRect.name = 'emoji';
-  emojiRect.x = 50;
+  emojiRect.x = pad;
   emojiRect.y = 40;
-  emojiRect.resize(48, 48);
+  emojiRect.resize(emojiSize, emojiSize);
   if (data.emoji && _emojiBytes[data.emoji]) {
     const img = figma.createImage(new Uint8Array(_emojiBytes[data.emoji]));
     emojiRect.fills = [{ type: 'IMAGE', imageHash: img.hash, scaleMode: 'FIT' }];
@@ -280,16 +315,16 @@ async function createIconCard(parent: FrameNode, data: IconCardData, opts: CardO
   }
   card.appendChild(emojiRect);
 
-  const titleY = 40 + 48 + S.gapXs;
+  const titleY = 40 + emojiSize + S.gapXs;
   const titleNode = await createText(card, {
-    text: data.title, x: 50, y: titleY, w: opts.w - 90,
-    size: 36, weight: 700, lh: 1.45, ls: -0.02, color: C.black,
+    text: data.title, x: pad, y: titleY, w: opts.w - pad * 2,
+    size: scaledFont(36, s.font, 'title'), weight: 700, lh: 1.45 * s.lh, ls: -0.02, color: C.black,
   });
 
   const bodyY = titleY + titleNode.height + S.gapLg;
   await createText(card, {
-    text: data.body, x: 50, y: bodyY, w: opts.w - 90,
-    size: 28, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
+    text: data.body, x: pad, y: bodyY, w: opts.w - pad * 2,
+    size: scaledFont(28, s.font, 'body'), weight: 500, lh: 1.45 * s.lh, ls: -0.02, color: C.g500,
   });
 
   return card;
@@ -302,40 +337,48 @@ interface StatCardData {
 
 async function createStatCard(parent: FrameNode, data: StatCardData, opts: CardOpts): Promise<FrameNode> {
   const card = createCard(parent, `StatCard — ${data.title}`, { ...opts, shadow: true });
+  const contentUnits = data.title.length + data.sub.length + data.label.length + data.stat.length;
+  const d = opts.density || detectDensity(opts.h, contentUnits);
+  const s = ds(d);
+
+  const pad = S.padCard;
 
   const titleNode = await createText(card, {
-    text: data.title, x: 40, y: 40, w: opts.w - 80,
-    size: 36, weight: 700, lh: 1.45, ls: -0.02, color: C.black,
+    text: data.title, x: pad, y: pad, w: opts.w - pad * 2,
+    size: scaledFont(36, s.font, 'title'), weight: 700, lh: 1.45 * s.lh, ls: -0.02, color: C.black,
   });
-  const subY = 40 + titleNode.height;
+  const subY = pad + titleNode.height;
   await createText(card, {
-    text: data.sub, x: 40, y: subY, w: opts.w - 80,
-    size: 24, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
+    text: data.sub, x: pad, y: subY, w: opts.w - pad * 2,
+    size: scaledFont(24, s.font, 'sub'), weight: 500, lh: 1.45 * s.lh, ls: -0.02, color: C.g500,
   });
 
   const labelY = subY + 35 + S.gapLg;
   await createText(card, {
-    text: data.label, x: 40, y: labelY, w: opts.w - 80,
-    size: 28, weight: 500, lh: 1.45, ls: -0.02, color: C.g700,
+    text: data.label, x: pad, y: labelY, w: opts.w - pad * 2,
+    size: scaledFont(28, s.font, 'body'), weight: 500, lh: 1.45 * s.lh, ls: -0.02, color: C.g700,
   });
   await createText(card, {
-    text: data.stat, x: 40, y: labelY + 40, w: opts.w - 80,
-    size: 58, weight: 700, lh: 1.45, ls: -0.02, color: C.accent,
+    text: data.stat, x: pad, y: labelY + 40, w: opts.w - pad * 2,
+    size: scaledFont(58, s.font, 'stat'), weight: 700, lh: 1.45 * s.lh, ls: -0.02, color: C.accent,
   });
 
   return card;
 }
 
 // ─── DarkBanner ───
-async function createDarkBanner(parent: FrameNode, text: string, accentPart: string, opts: { x: number; y: number; w: number; h: number }) {
+async function createDarkBanner(parent: FrameNode, text: string, accentPart: string, opts: { x: number; y: number; w: number; h: number; density?: Density }) {
   const banner = createCard(parent, 'DarkBanner', { ...opts, bg: C.g800, shadow: false });
+  const d = opts.density || (text.length > 60 ? 'dense' : 'normal');
+  const s = ds(d);
 
+  const fontSize = Math.round(36 * s.font);
   const fullText = text;
   const t = figma.createText();
   t.fontName = fontName(700);
-  t.fontSize = 36;
-  t.lineHeight = { value: 36 * 1.45, unit: 'PIXELS' };
-  t.letterSpacing = { value: 36 * -0.02, unit: 'PIXELS' };
+  t.fontSize = fontSize;
+  t.lineHeight = { value: fontSize * 1.45 * s.lh, unit: 'PIXELS' };
+  t.letterSpacing = { value: fontSize * -0.02, unit: 'PIXELS' };
   t.characters = fullText;
   t.fills = solid(C.white);
   t.textAlignHorizontal = 'CENTER';
@@ -347,7 +390,7 @@ async function createDarkBanner(parent: FrameNode, text: string, accentPart: str
   }
 
   t.x = 60;
-  t.y = (opts.h - 52) / 2;
+  t.y = (opts.h - Math.round(fontSize * 1.45)) / 2;
   t.resize(opts.w - 120, t.height);
   t.textAutoResize = 'HEIGHT';
   banner.appendChild(t);
@@ -822,21 +865,45 @@ interface BulletCardData {
 
 async function createBulletCard(parent: FrameNode, data: BulletCardData, opts: CardOpts): Promise<FrameNode> {
   const card = createCard(parent, `BulletCard — ${data.title}`, { ...opts, shadow: true });
+  const pad = S.padCard;
 
-  await createText(card, {
-    text: data.title, x: S.padCard, y: S.padCard, w: opts.w - S.padCard * 2,
+  const titleNode = await createText(card, {
+    text: data.title, x: pad, y: pad, w: opts.w - pad * 2,
     size: 36, weight: 700, lh: 1.45, ls: -0.02, color: C.black,
   });
 
-  const bulletText = data.items.map(item => '•  ' + item).join('\n');
-  const bulletLineH = 28 * 1.45;
-  const bulletH = bulletLineH * data.items.length;
-  const bulletY = opts.h - S.padCard - bulletH;
+  const bulletLineH = Math.round(28 * 1.45);
+  const availableH = opts.h - pad * 2 - titleNode.height - S.gapSm;
+  const singleColH = bulletLineH * data.items.length;
+  const useTwoCols = singleColH > availableH && data.items.length > 2;
 
-  await createText(card, {
-    text: bulletText, x: S.padCard + 20, y: bulletY, w: opts.w - S.padCard * 2 - 20,
-    size: 28, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
-  });
+  const bulletY = pad + titleNode.height + S.gapSm;
+  const contentW = opts.w - pad * 2;
+
+  if (useTwoCols) {
+    const colGap = S.gapSm;
+    const colW = (contentW - colGap) / 2;
+    const midIdx = Math.ceil(data.items.length / 2);
+    const leftItems = data.items.slice(0, midIdx);
+    const rightItems = data.items.slice(midIdx);
+
+    await createText(card, {
+      text: leftItems.map(it => '•  ' + it).join('\n'),
+      x: pad, y: bulletY, w: colW,
+      size: 28, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
+    });
+    await createText(card, {
+      text: rightItems.map(it => '•  ' + it).join('\n'),
+      x: pad + colW + colGap, y: bulletY, w: colW,
+      size: 28, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
+    });
+  } else {
+    await createText(card, {
+      text: data.items.map(it => '•  ' + it).join('\n'),
+      x: pad + 20, y: bulletY, w: contentW - 20,
+      size: 28, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
+    });
+  }
 
   return card;
 }
@@ -898,21 +965,74 @@ interface StatHeroCardData {
 
 async function createStatHeroCard(parent: FrameNode, data: StatHeroCardData, opts: CardOpts): Promise<FrameNode> {
   const card = createCard(parent, `StatHeroCard — ${data.title}`, { ...opts, shadow: true });
+  const pad = S.padCard;
 
   const titleNode = await createText(card, {
-    text: data.title, x: S.padCard, y: S.padCard, w: opts.w - S.padCard * 2,
+    text: data.title, x: pad, y: pad, w: opts.w - pad * 2,
     size: 36, weight: 700, lh: 1.45, ls: -0.02, color: C.black,
   });
 
-  const statY = S.padCard + titleNode.height + S.gapLg;
+  const statSize = 58;
+  const statLineH = Math.round(statSize * 1.45);
+  const subSize = 24;
+  const subLineH = Math.round(subSize * 1.45);
+
+  const subY = opts.h - pad - subLineH;
+  const statY = subY - statLineH;
+
   await createText(card, {
-    text: data.stat, x: S.padCard, y: statY, w: opts.w - S.padCard * 2,
-    size: 58, weight: 700, lh: 1.45, ls: -0.02, color: C.accent,
+    text: data.stat, x: pad, y: statY, w: opts.w - pad * 2,
+    size: statSize, weight: 700, lh: 1.45, ls: -0.02, color: C.accent,
   });
   await createText(card, {
-    text: data.sub, x: S.padCard, y: statY + 84, w: opts.w - S.padCard * 2,
-    size: 24, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
+    text: data.sub, x: pad, y: subY, w: opts.w - pad * 2,
+    size: subSize, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
   });
+
+  return card;
+}
+
+// ─── StatRowCard (timeline of stats) ───
+interface StatRowCardData {
+  title: string;
+  values: { stat: string; label: string; accent?: boolean }[];
+}
+
+async function createStatRowCard(parent: FrameNode, data: StatRowCardData, opts: CardOpts): Promise<FrameNode> {
+  const card = createCard(parent, `StatRow — ${data.title}`, { ...opts, shadow: true });
+  const pad = S.padCard;
+
+  const titleNode = await createText(card, {
+    text: data.title, x: pad, y: pad, w: opts.w - pad * 2,
+    size: 36, weight: 700, lh: 1.45, ls: -0.02, color: C.black,
+  });
+
+  const cols = data.values.length;
+  const colW = (opts.w - pad * 2) / cols;
+  const statSize = 48;
+  const labelSize = 24;
+  const statLineH = Math.round(statSize * 1.3);
+  const labelLineH = Math.round(labelSize * 1.45);
+
+  const labelY = opts.h - pad - labelLineH;
+  const statY = labelY - statLineH;
+
+  for (let i = 0; i < cols; i++) {
+    const v = data.values[i];
+    const cx = pad + i * colW;
+    const isAccent = v.accent || false;
+    const statColor = isAccent ? C.accent : C.black;
+    const labelColor = isAccent ? C.accent : C.g500;
+
+    await createText(card, {
+      text: v.stat, x: cx, y: statY, w: colW,
+      size: statSize, weight: 700, lh: 1.3, ls: -0.02, color: statColor,
+    });
+    await createText(card, {
+      text: v.label, x: cx, y: labelY, w: colW,
+      size: labelSize, weight: 500, lh: 1.45, ls: -0.02, color: labelColor,
+    });
+  }
 
   return card;
 }
@@ -925,22 +1045,30 @@ interface LabeledListCardData {
 
 async function createLabeledListCard(parent: FrameNode, data: LabeledListCardData, opts: CardOpts): Promise<FrameNode> {
   const card = createCard(parent, `LabeledListCard — ${data.title}`, { ...opts, shadow: true });
+  const totalChars = data.title.length + data.groups.reduce((sum, g) => sum + g.label.length + g.items.length, 0);
+  const contentUnits = totalChars + data.groups.length * 15;
+  const d = opts.density || detectDensity(opts.h, contentUnits);
+  const s = ds(d);
+
+  const pad = S.padCard;
 
   const titleNode = await createText(card, {
-    text: data.title, x: S.padCard, y: S.padCard, w: opts.w - S.padCard * 2,
-    size: 36, weight: 700, lh: 1.45, ls: -0.02, color: C.black,
+    text: data.title, x: pad, y: pad, w: opts.w - pad * 2,
+    size: scaledFont(36, s.font, 'title'), weight: 700, lh: 1.45 * s.lh, ls: -0.02, color: C.black,
   });
-  let groupY = S.padCard + titleNode.height + S.gapSm;
+  let groupY = pad + titleNode.height + S.gapSm;
   for (const group of data.groups) {
+    const labelSize = scaledFont(24, s.font, 'sub');
     await createText(card, {
-      text: group.label, x: S.padCard, y: groupY, w: opts.w - S.padCard * 2,
-      size: 24, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
+      text: group.label, x: pad, y: groupY, w: opts.w - pad * 2,
+      size: labelSize, weight: 500, lh: 1.45 * s.lh, ls: -0.02, color: C.g500,
     });
+    const labelH = Math.round(labelSize * 1.45 * s.lh);
     const itemNode = await createText(card, {
-      text: group.items, x: S.padCard, y: groupY + 35, w: opts.w - S.padCard * 2,
-      size: 28, weight: 500, lh: 1.45, ls: -0.02, color: C.black,
+      text: group.items, x: pad, y: groupY + labelH, w: opts.w - pad * 2,
+      size: scaledFont(28, s.font, 'body'), weight: 500, lh: 1.45 * s.lh, ls: -0.02, color: C.black,
     });
-    groupY += 35 + itemNode.height + S.gapSm;
+    groupY += labelH + itemNode.height + S.gapSm;
   }
 
   return card;
@@ -1090,8 +1218,11 @@ async function renderPrimitive(parent: FrameNode, p: CustomPrimitive, opts: Card
     case 'growth-stat':
       await createGrowthStatCard(parent, { title: p.title, before: p.before, after: p.after, labels: p.labels || [] }, opts);
       break;
+    case 'stat-row':
+      await createStatRowCard(parent, { title: p.title, values: p.values || [] }, opts);
+      break;
     case 'image':
-      await createImagePlaceholder(parent, { label: p.label || p.title || '', caption: p.caption }, opts);
+      await createImagePlaceholder(parent, { label: p.label || p.title || '', caption: p.caption, imageUrl: p.imageUrl }, opts);
       break;
     default:
       const fallback = createCard(parent, 'Unknown: ' + p.primitive, { ...opts, shadow: true });
@@ -1100,6 +1231,23 @@ async function renderPrimitive(parent: FrameNode, p: CustomPrimitive, opts: Card
         size: 28, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
       });
   }
+}
+
+function measureSlideDensity(data: CustomSlideData): Density {
+  let totalUnits = 0;
+  for (const row of data.rows) {
+    for (const card of row.cards) {
+      const texts = [card.title, card.body, card.sub, card.stat, card.name, card.role, card.highlights, card.label, card.text].filter(Boolean);
+      totalUnits += texts.reduce((sum: number, t: string) => sum + t.length, 0);
+      if (card.items) totalUnits += (card.items as string[]).reduce((sum: number, it: string) => sum + it.length + 10, 0);
+      if (card.groups) totalUnits += (card.groups as any[]).reduce((sum: number, g: any) => sum + g.label.length + g.items.length + 15, 0);
+    }
+  }
+  const availableH = CANVAS_H - 340 - S.margin;
+  const totalCards = data.rows.reduce((sum, r) => sum + r.cards.length, 0);
+  const avgCardH = availableH / Math.max(data.rows.length, 1);
+  const avgUnitsPerCard = totalUnits / Math.max(totalCards, 1);
+  return detectDensity(avgCardH, avgUnitsPerCard);
 }
 
 async function createCustomSlide(data: CustomSlideData): Promise<FrameNode> {
@@ -1118,6 +1266,8 @@ async function createCustomSlide(data: CustomSlideData): Promise<FrameNode> {
     });
   }
 
+  const slideDensity = measureSlideDensity(data);
+
   const contentTop = 340;
   const contentBottom = CANVAS_H - S.margin;
   const totalRows = data.rows.length;
@@ -1126,7 +1276,7 @@ async function createCustomSlide(data: CustomSlideData): Promise<FrameNode> {
   let footerH = 0;
   if (hasFooter) {
     const fp = data.footer!;
-    if (fp.primitive === 'dark-banner') footerH = Math.floor((contentBottom - contentTop) * 0.25);
+    if (fp.primitive === 'dark-banner') footerH = Math.floor((contentBottom - contentTop) * 0.18);
     else if (fp.primitive === 'footer-bar') footerH = 210;
     else if (fp.primitive === 'footer-card') footerH = Math.floor((contentBottom - contentTop) * 0.35);
     else footerH = 150;
@@ -1146,7 +1296,7 @@ async function createCustomSlide(data: CustomSlideData): Promise<FrameNode> {
 
     for (let c = 0; c < cols; c++) {
       const cardX = S.margin + c * (cardW + S.gapSm);
-      await renderPrimitive(slide, row.cards[c], { x: cardX, y: currentY, w: cardW, h: rowH });
+      await renderPrimitive(slide, row.cards[c], { x: cardX, y: currentY, w: cardW, h: rowH, density: slideDensity });
     }
     currentY += rowH + S.gapSm;
   }
@@ -1307,6 +1457,7 @@ interface ImagePlaceholderData {
   label: string;
   caption?: string;
   aspect?: string;
+  imageUrl?: string;
 }
 
 async function createImagePlaceholder(parent: FrameNode, data: ImagePlaceholderData, opts: CardOpts): Promise<FrameNode> {
@@ -1322,14 +1473,21 @@ async function createImagePlaceholder(parent: FrameNode, data: ImagePlaceholderD
   imgRect.x = imgPad;
   imgRect.y = imgPad;
   imgRect.resize(imgW, imgH);
-  imgRect.fills = solid(C.g100);
+  if (data.imageUrl && _imageBytes[data.imageUrl]) {
+    const img = figma.createImage(new Uint8Array(_imageBytes[data.imageUrl]));
+    imgRect.fills = [{ type: 'IMAGE', imageHash: img.hash, scaleMode: 'FILL' }];
+  } else {
+    imgRect.fills = solid(C.g100);
+  }
   imgRect.cornerRadius = S.radiusInner;
   card.appendChild(imgRect);
 
-  await createText(card, {
-    text: data.label, x: imgPad, y: imgPad + imgH / 2 - 20, w: imgW,
-    size: 28, weight: 600, lh: 1.45, ls: -0.02, color: C.g400, align: 'CENTER',
-  });
+  if (!data.imageUrl || !_imageBytes[data.imageUrl]) {
+    await createText(card, {
+      text: data.label, x: imgPad, y: imgPad + imgH / 2 - 20, w: imgW,
+      size: 28, weight: 600, lh: 1.45, ls: -0.02, color: C.g400, align: 'CENTER',
+    });
+  }
 
   if (data.caption) {
     await createText(card, {
@@ -1378,8 +1536,7 @@ figma.ui.onmessage = async (msg) => {
       await loadFonts();
       const data = msg.data;
       _emojiBytes = msg.emojiBytes || {};
-
-      let slide: FrameNode;
+      _imageBytes = msg.imageBytes || {};
 
       if (data.type === 'full-deck') {
         const slides: FrameNode[] = [];

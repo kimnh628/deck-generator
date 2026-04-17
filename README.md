@@ -1,6 +1,18 @@
 # Deck Generator — Figma Plugin
 
-design.md v2.3 디자인 시스템 기반 프레젠테이션 슬라이드 자동 생성 플러그인.
+design.md v2.4 디자인 시스템 기반 프레젠테이션 슬라이드 자동 생성 플러그인.
+
+## 추천 워크플로우: Claude Code → Figma
+
+1. **Claude Code에서 덱 JSON 생성**
+   ```
+   이 내용으로 5장짜리 피치덱 JSON 만들어줘:
+   [내용 붙여넣기]
+   ```
+2. **JSON 복사 → Figma 플러그인에 붙여넣기 → Generate Slide**
+3. **Figma에서 미세 조정** (텍스트 수정, 이미지 교체 등)
+
+> JSON 스키마 상세는 `DECK-WORKFLOW.md` 참조
 
 ## 설치
 
