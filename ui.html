@@ -21,10 +21,10 @@
   <select id="preset">
     <option value="">— Preset 선택 —</option>
     <optgroup label="Full Deck">
-      <option value="full-deck-kakao">Kakao×GoodGang — IP (4장)</option>
-      <option value="full-deck-band">차원을 달리는 밴드 (19장)</option>
-      <option value="full-deck-nocturn">Nocturn — AI 작곡 플랫폼 (10장)</option>
-      <option value="full-deck-ganghwa">강화군 AI 아바타 (4장)</option>
+      <option value="full-deck-kakao">Kakao×GoodGang — IP (4장) (예시)</option>
+      <option value="full-deck-band">차원을 달리는 밴드 (19장) (예시)</option>
+      <option value="full-deck-nocturn">Nocturn — AI 작곡 플랫폼 (10장) (예시)</option>
+      <option value="full-deck-ganghwa">강화군 AI 아바타 (4장) (예시)</option>
     </optgroup>
     <optgroup label="Single Slide">
       <option value="splash-cover">Splash Cover</option>
@@ -446,6 +446,10 @@
     if (presets[val]) {
       document.getElementById('json').value = JSON.stringify(presets[val], null, 2);
     }
+  });
+
+  document.getElementById('json').addEventListener('input', () => {
+    document.getElementById('preset').value = '';
   });
 
   const EMOJI_CDN = 'https://raw.githubusercontent.com/microsoft/fluentui-emoji/main/assets/';
