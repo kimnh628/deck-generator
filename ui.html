@@ -526,24 +526,9 @@
   }
 
   function sanitizeJson(text) {
-    let result = '';
-    for (let i = 0; i < text.length; i++) {
-      const code = text.charCodeAt(i);
-      if (code === 10 || code === 13 || code === 9 || code >= 32) {
-        if (code !== 0x200B && code !== 0x200C && code !== 0x200D &&
-            code !== 0x2060 && code !== 0xFEFF && code !== 0x00AD && code !== 0x7F) {
-          result += text[i];
-        }
-      }
-    }
-    return result;
+    return text.replace(/[\x00-\x1F\x7F\u200B\u200C\u200D\u2060\uFEFF\u00AD]/g, ' ')
+               .replace(/\s+/g, ' ');
   }
-
-  document.getElementById('json').addEventListener('paste', (e) => {
-    e.preventDefault();
-    const text = (e.clipboardData || window.clipboardData).getData('text/plain');
-    document.getElementById('json').value = sanitizeJson(text);
-  });
 
   document.getElementById('generate').addEventListener('click', async () => {
     const raw = sanitizeJson(document.getElementById('json').value);
