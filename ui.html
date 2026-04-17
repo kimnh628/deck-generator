@@ -525,8 +525,12 @@
     } catch { return null; }
   }
 
+  function sanitizeJson(text) {
+    return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  }
+
   document.getElementById('generate').addEventListener('click', async () => {
-    const raw = document.getElementById('json').value;
+    const raw = sanitizeJson(document.getElementById('json').value);
     try {
       const data = JSON.parse(raw);
       const emojiNames = collectEmojis(data);
