@@ -154,7 +154,7 @@ ui.html 변경은 플러그인 창 닫고 다시 열어야 반영.
 
 모든 색상/폰트/간격은 design.md v2.3 기준:
 - Canvas: 1920×1080
-- Accent: #FF006A (텍스트 강조만, 배경 금지)
+- Accent: #FE45A1 (텍스트 강조만, 배경 금지)
 - Card gap: 20px 고정
 - Card radius: 40px
 - Card shadow: 0 0 30px rgba(0,0,0,0.10)

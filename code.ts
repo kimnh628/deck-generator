@@ -18,7 +18,7 @@ const C = {
   g400:    hex('#C5C5C5'),
   g100:    hex('#F7F7F7'),
   g50:     hex('#F5F5F5'),
-  accent:  hex('#FF006A'),
+  accent:  hex('#FE45A1'),
   white:   hex('#FFFFFF'),
 };
 

@@ -36,6 +36,6 @@ npm install      # 최초 의존성 설치
 ## Design Tokens (v2.4)
 - Canvas: 1920x1080
 - Card padding: 40px, Card gap: 20px, Card radius: 40px
-- Accent: #FF006A (텍스트만)
+- Accent: #FE45A1 (텍스트만)
 - Font: Pretendard
 - Shadow: 0 0 30px rgba(0,0,0,0.10)

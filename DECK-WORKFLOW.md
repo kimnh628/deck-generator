@@ -90,7 +90,7 @@
 - 카드 패딩: 40px 고정
 - 카드 간격: 20px 고정
 - 카드 라디우스: 40px
-- 액센트: #FF006A (텍스트 강조만, 배경 금지)
+- 액센트: #FE45A1 (텍스트 강조만, 배경 금지)
 - StatHeroCard/StatRowCard: 하단 패딩 40px 기준 바텀 앵커링
 - BulletCard: 3+ 항목 시 자동 2단
 - DarkBanner footer: 콘텐츠 영역의 18%
