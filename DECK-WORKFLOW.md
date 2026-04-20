@@ -86,15 +86,59 @@
 
 ## Design Rules (v2.4)
 
+### 레이아웃 기본값
 - 캔버스: 1920x1080
-- 카드 패딩: 40px 고정
-- 카드 간격: 20px 고정
+- 슬라이드 마진: 80px (상하좌우)
+- 카드 패딩: 40px 고정 (밀도 무관, 절대 변경 금지)
+- 카드 간격: 20px 고정 (가로/세로 동일)
 - 카드 라디우스: 40px
-- 액센트: #FE45A1 (텍스트 강조만, 배경 금지)
-- StatHeroCard/StatRowCard: 하단 패딩 40px 기준 바텀 앵커링
-- BulletCard: 3+ 항목 시 자동 2단
-- DarkBanner footer: 콘텐츠 영역의 18%
-- 카드 내 설명(sub) 지양 → 슬라이드 lead에 배치
+- 카드 그림자: 0 0 30px rgba(0,0,0,0.10)
+- 콘텐츠 시작 Y: 340px (eyebrow + headline 아래)
+
+### 색상 토큰
+- 액센트: #FE45A1 (텍스트 강조만, 카드 배경 금지)
+- 블랙: #131313 / g800: #2B292E / g500: #808080 / g100: #F7F7F7
+- 카드 배경: white (기본), g800 (dark 모드)
+
+### 타이포 토큰
+| 용도 | 사이즈 | 굵기 | 최소값 |
+|------|--------|------|--------|
+| splash-title | 120/96 | 800 | - |
+| headline | 48 | 700 | - |
+| card-title | 36 | 700 | 28 |
+| body | 28 | 500 | 24 |
+| card-sub | 24 | 500 | 20 |
+| stat | 58 | 700 | 42 |
+| table-cell | 22~28 | 500 | - |
+
+### 카드 규칙
+- **IconCard dark 모드**: `dark: true` → g800 배경, white 텍스트, 그림자 없음
+- **IconCard stat 모드**: `stat` 필드 → 이모지 우상단 87x87 (radius 16), 제목+캡션 좌측, stat 하단 앵커링
+- **StatHeroCard/StatRowCard**: stat+sub를 하단 패딩 40px 기준 바텀 앵커링. title↔stat 갭은 유동적
+- **BulletCard**: 1단 높이 > 가용공간이고 items > 2이면 자동 2단 (좌 ceil(n/2), 우 나머지)
+- **카드 내 설명(sub) 지양** → 슬라이드 lead에 배치
+- **StatRowCard 사용 기준**: DarkBanner/FooterBar 셀 최대 4개, 5+ 수치 비교 시 사용
+
+### Footer 규칙
+- DarkBanner: custom 슬라이드에서 콘텐츠 영역의 18%
+- FooterBar: 고정 210px, 최대 4셀
+
+### DataTable 규칙
+- 모든 행(헤더/데이터/합계) 균등 높이
+- 헤더: g100 배경 + g500 텍스트 (700)
+- 1열: g100 배경 + black 텍스트 (700), 좌측 패딩 40px
+- 데이터 셀: white 배경 + black 텍스트 (500)
+- 합계 행: g800 배경 + white/accent 텍스트
+- 폰트: 행 높이 80px+ → body(28px), 미만 → table-cell(22px)
+
+### CompareTable 규칙
+- Winner 열 헤더: g800 배경 (강조 유지)
+- Winner 열 데이터: accent 텍스트 + bold
+- 나머지 헤더: g100, 1열: g100
+
+### 텍스트 처리
+- 한글 word-break 방지: Word Joiner (U+2060) 자동 삽입
+- JSON 복붙 시 제어문자 자동 제거 (sanitizer)
 
 ---
 
