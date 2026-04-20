@@ -501,8 +501,9 @@ banner: 크리에이터의 시간은 유한하지만 **팬의 기대는 무한**
   };
 
   function guessEmojiPath(name) {
-    // Convert snake_case to Title Case folder name
-    const words = name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1));
+    // Fluent Emoji: only first word capitalized (e.g. "Light bulb", not "Light Bulb")
+    const words = name.split('_');
+    words[0] = words[0].charAt(0).toUpperCase() + words[0].slice(1);
     const folder = words.join('%20');
     const file = name + '_3d';
     return folder + '/3D/' + file + '.png';
