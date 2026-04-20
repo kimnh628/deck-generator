@@ -509,13 +509,22 @@ banner: 크리에이터의 시간은 유한하지만 **팬의 기대는 무한**
   }
 
   async function fetchEmoji(name) {
-    const path = EMOJI_MAP[name] || guessEmojiPath(name);
-    if (!path) return null;
-    try {
-      const res = await fetch(EMOJI_CDN + path);
-      const buf = await res.arrayBuffer();
-      return Array.from(new Uint8Array(buf));
-    } catch { return null; }
+    const registered = EMOJI_MAP[name];
+    const guessed = guessEmojiPath(name);
+    const paths = registered ? [registered] : [guessed, guessed.replace('/3D/', '/Default/3D/')];
+    for (const path of paths) {
+      try {
+        const res = await fetch(EMOJI_CDN + path);
+        if (!res.ok) continue;
+        const buf = await res.arrayBuffer();
+        const arr = new Uint8Array(buf);
+        if (arr.length < 100) continue;
+        const isPng = arr[0] === 0x89 && arr[1] === 0x50;
+        if (!isPng) continue;
+        return Array.from(arr);
+      } catch { continue; }
+    }
+    return null;
   }
 
   function collectEmojis(data) {
