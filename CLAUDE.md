@@ -4,6 +4,10 @@
 design.md v2.4 디자인 시스템 기반 프레젠테이션 슬라이드 자동 생성 Figma 플러그인.
 자연어 → JSON → Figma 노드 파이프라인.
 
+## 입력 방식 (v2.5+)
+- **Markdown**: 플러그인 textarea 에 MD 직접 입력 (자동 감지). 스키마는 `DECK-WORKFLOW.md § Markdown Input`
+- **JSON**: `{` 로 시작하면 JSON 모드. 복잡한 케이스(gantt, growth-stat 등)에 사용
+
 ## Deck JSON 생성 가이드
 
 사용자가 덱/슬라이드 내용을 설명하면:

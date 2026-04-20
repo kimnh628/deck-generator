@@ -1,21 +1,133 @@
 # Deck Generator Workflow
 
-자연어 → Claude Code → JSON → Figma Plugin → 슬라이드
+자연어 → (Markdown | Claude Code JSON) → Figma Plugin → 슬라이드
 
 ## Quick Start
 
-### 1. 클로드코드에서 JSON 생성
+### 입력 방식 (v2.5+: 자동 감지)
+- `{` 또는 `[` 로 시작 → JSON 모드
+- 그 외 → Markdown 모드
+
+### A. Markdown 직접 입력 (추천)
+1. Figma 열기 → Plugins → Development → Deck Generator
+2. 아래 Markdown 스키마에 맞춰 입력
+3. Generate Slide 클릭
+
+### B. 클로드코드로 JSON 생성
 ```
 이 내용으로 덱 JSON 만들어줘:
 - 제목: [프로젝트명]
 - 내용: [핵심 내용 붙여넣기]
 - 슬라이드 수: [원하는 장수]
 ```
+그 다음 JSON 붙여넣고 Generate Slide 클릭.
 
-### 2. Figma에서 생성
-1. Figma 열기 → Plugins → Development → Deck Generator
-2. 생성된 JSON 복사 → 텍스트 영역에 붙여넣기
-3. Generate Slide 클릭
+---
+
+## Markdown Input 스키마
+
+### 전체 구조
+```md
+# [Deck Name]  ← full-deck 이름 (생략 시 단일 슬라이드)
+
+---
+## splash: [variant]
+...
+
+---
+## [eyebrow] :: [headline]
+...
+```
+
+`---` 은 슬라이드 구분자. 한 슬라이드만 있으면 `full-deck` 대신 단일 객체로 출력.
+
+### Splash 슬라이드
+```md
+## splash: cover          ← name_top (cover 별칭)
+## splash: closing        ← email_top (closing 별칭)
+## splash: name_top       ← 원본 variant 그대로
+title: 1번째 줄
+title: 2번째 줄
+subtitle: 서브타이틀
+presenter: 이름 | 역할
+email: contact@company.com
+titleColor: accent         ← 선택
+```
+
+### Content 슬라이드 (custom / grid)
+```md
+## [eyebrow] :: [headline]
+accent: [헤드라인 내 핑크 강조 단어]
+type: [custom|icon-card-grid|stat-card-grid|data-table|step-flow|...]
+lead: [리드 본문]
+lead-subtitle: [리드 소제목]
+lead-position: [right|left|bottom]
+```
+
+`type` 생략 시 `custom`. `icon-card-grid`/`stat-card-grid` 이면 rows 가 cards 로 평탄화됨.
+
+### Primitive 블록 (`### primitive-name` + 리스트)
+각 primitive 는 `### name` 헤딩으로 시작하고 하위 `- ...` 리스트가 카드가 됨.
+
+| Primitive | 리스트 형식 | 생성 JSON |
+|-----------|-------------|-----------|
+| `### stat-hero` | `- 제목 \| 수치 \| 부연` | `{primitive:'stat-hero', title, stat, sub}` |
+| `### stat-row` | `- 수치 \| 라벨 \| accent?` | 단일 `stat-row` 카드에 values 누적 |
+| `### stat-card` | `- 제목 \| 부연 \| 라벨 \| 수치` | `{primitive:'stat-card', title, sub, label, stat}` |
+| `### bullet` | `- 항목` | 단일 `bullet` 카드에 items 누적 |
+| `### person` | `- 이름 \| 역할 \| 하이라이트,,,` | `{primitive:'person', name, role, highlights[]}` |
+| `### labeled-list` | `- 라벨 \| 항목,,,` | 단일 `labeled-list` 카드에 groups 누적 |
+| (기본, 헤딩 없음) | `- :emoji: 제목 \| 설명` 또는 `- 제목 \| 설명` | `{emoji?, title, body}` (icon-card) |
+
+### Footer
+슬라이드 바디 어디에서든 `banner:` 줄을 쓰면 dark-banner footer 가 추가됨.
+```md
+banner: 본문에 **강조부** 포함
+banner-accent: 강조부  ← 선택 (생략 시 ** 로 자동 추출)
+```
+
+`**text**` 마커는 자동으로 `accentPart` 추출 후 제거.
+
+### 예시
+```md
+# AI Avatar Platform
+
+---
+## splash: cover
+title: Invisible AI,
+title: made visible and lovable.
+subtitle: Web-based Real-time Voice 3D AI Avatars
+presenter: 안두경 | Co-founder & CEO
+email: dookyung@goodganglabs.com
+
+---
+## Problem :: 크리에이터의 물리적 한계
+accent: 물리적 한계
+lead: 콘텐츠 제작 시간이 부족하다
+
+### stat-hero
+- 콘텐츠 제작 시간 | 72h | 영상 1건 소요
+- 팬 응답률 | 0.3% | DM 응답 한계
+- 번아웃 | 67% | 1년 내 중단
+
+banner: 크리에이터의 시간은 유한하지만 **팬의 기대는 무한**하다
+
+---
+## Solution :: AI 아바타가 당신을 대신합니다
+accent: 대신합니다
+type: icon-card-grid
+
+- :robot: 24/7 소통 | AI 아바타가 실시간 대화
+- :sparkles: 자동 콘텐츠 | 크리에이터 스타일 학습
+- :globe: 다국어 지원 | 10개 언어 실시간 번역
+```
+
+### 제한사항 (MVP v1)
+- `gantt`, `growth-stat`, `image`, `compare-table` 은 JSON 으로만 지원
+- `footer-bar`/`footer-card` 는 JSON 으로만 지원 (MD 는 `banner` 만)
+- 복잡한 `rows` 조합(혼합 카드 1줄 등)은 JSON 권장
+
+복잡한 케이스는 JSON 모드를 쓰거나 MD 로 뼈대만 만든 후 미세조정.
 
 > **주의: 한글 복사 시 "Bad control character" 에러**
 > 터미널/Claude 출력에서 한글 JSON을 복사하면 보이지 않는 제어문자가 포함될 수 있음.

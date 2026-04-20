@@ -16,7 +16,7 @@
 </head>
 <body>
   <h2>Deck Generator</h2>
-  <p class="hint">Slide JSON 을 붙여넣고 Generate 클릭. design.md v2.3 토큰 자동 적용.</p>
+  <p class="hint">JSON 또는 Markdown 을 붙여넣고 Generate 클릭. 형식 자동 감지. design.md v2.4 토큰 자동 적용.</p>
 
   <select id="preset">
     <option value="">— Preset 선택 —</option>
@@ -35,13 +35,30 @@
     </optgroup>
   </select>
 
-  <textarea id="json" placeholder='{
-  "type": "splash",
-  "variant": "name_top",
-  "title": ["Invisible AI,", "made visible and lovable."],
-  "subtitle": "Web-based Real-time Voice 3D AI Avatars Platform",
-  "presenter": { "name": "안두경 | Co-founder & CEO", "email": "dookyung@goodganglabs.com" }
-}'></textarea>
+  <textarea id="json" placeholder='# Goodgang Labs
+
+---
+## splash: cover
+title: Invisible AI,
+title: made visible and lovable.
+subtitle: Web-based Real-time Voice 3D AI Avatars
+presenter: 안두경 | CEO
+email: dookyung@goodganglabs.com
+
+---
+## Problem :: 크리에이터의 물리적 한계
+accent: 물리적 한계
+lead: 콘텐츠 제작 시간이 부족하다
+
+### stat-hero
+- 콘텐츠 제작 시간 | 72h | 영상 1건 소요
+- 팬 응답률 | 0.3% | DM 응답 한계
+- 번아웃 | 67% | 1년 내 중단
+
+banner: 크리에이터의 시간은 유한하지만 **팬의 기대는 무한**하다
+
+---
+# 또는 JSON 직접 입력 가능 ({ 로 시작하면 자동 JSON 모드)'></textarea>
 
   <button id="generate">Generate Slide</button>
 
@@ -483,8 +500,16 @@
     'joystick': 'Joystick/3D/joystick_3d.png',
   };
 
+  function guessEmojiPath(name) {
+    // Convert snake_case to Title Case folder name
+    const words = name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1));
+    const folder = words.join('%20');
+    const file = name + '_3d';
+    return folder + '/3D/' + file + '.png';
+  }
+
   async function fetchEmoji(name) {
-    const path = EMOJI_MAP[name];
+    const path = EMOJI_MAP[name] || guessEmojiPath(name);
     if (!path) return null;
     try {
       const res = await fetch(EMOJI_CDN + path);
@@ -529,6 +554,235 @@
     } catch { return null; }
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // Markdown → JSON parser (v1)
+  // Schema: see DECK-WORKFLOW.md § Markdown Input
+  // ─────────────────────────────────────────────────────────────
+  function parseMarkdown(md) {
+    const text = md.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const sections = text.split(/^\s*---+\s*$/m).map(s => s.trim()).filter(Boolean);
+
+    let deckName = '';
+    const slides = [];
+
+    for (const section of sections) {
+      const lines = section.split('\n');
+      const hasSlideHeader = lines.some(l => /^##\s/.test(l));
+      const deckHeaderLine = lines.find(l => /^#\s/.test(l));
+
+      if (!hasSlideHeader && deckHeaderLine && !deckName) {
+        deckName = deckHeaderLine.replace(/^#\s+/, '').trim();
+        continue;
+      }
+
+      const slide = parseSlideSection(lines);
+      if (slide) slides.push(slide);
+    }
+
+    if (slides.length === 0) throw new Error('No slides found in markdown');
+    if (slides.length === 1 && !deckName) return slides[0];
+    return { type: 'full-deck', name: deckName || 'Deck', slides };
+  }
+
+  function parseSlideSection(lines) {
+    const headerIdx = lines.findIndex(l => /^##\s/.test(l));
+    if (headerIdx === -1) return null;
+
+    const headerLine = lines[headerIdx].replace(/^##\s+/, '').trim();
+    const body = lines.slice(headerIdx + 1);
+
+    if (/^splash\s*:/i.test(headerLine)) {
+      return parseSplashSlide(headerLine, body);
+    }
+
+    let eyebrow = '';
+    let headline = headerLine;
+    const match = headerLine.match(/^(.+?)\s*::\s*(.+)$/) || headerLine.match(/^(.+?)\s*:\s*(.+)$/);
+    if (match) {
+      eyebrow = match[1].trim();
+      headline = match[2].trim();
+    }
+
+    return parseContentSlide(eyebrow, headline, body);
+  }
+
+  function parseSplashSlide(headerLine, bodyLines) {
+    const vm = headerLine.match(/^splash\s*:\s*(.+)$/i);
+    let variant = vm ? vm[1].trim() : 'name_top';
+    if (variant === 'cover') variant = 'name_top';
+    else if (variant === 'closing') variant = 'email_top';
+
+    const slide = { type: 'splash', variant, title: [], presenter: {} };
+
+    for (const raw of bodyLines) {
+      const line = raw.trim();
+      if (!line) continue;
+      const kv = line.match(/^([\w-]+)\s*:\s*(.+)$/);
+      if (!kv) continue;
+      const key = kv[1].toLowerCase();
+      const value = kv[2].trim();
+
+      if (key === 'title') slide.title.push(value);
+      else if (key === 'subtitle') slide.subtitle = value;
+      else if (key === 'presenter') slide.presenter.name = value;
+      else if (key === 'email') slide.presenter.email = value;
+      else if (key === 'titlecolor') slide.titleColor = value;
+    }
+
+    return slide;
+  }
+
+  function parseContentSlide(eyebrow, headline, bodyLines) {
+    const slide = { type: 'custom', eyebrow, headline, rows: [] };
+    let currentPrimitive = null;
+    let currentCards = [];
+    let leadSubtitle = '', leadBody = '', leadPosition = '';
+    let bannerText = '', bannerAccent = '';
+    let customType = null;
+    let footerBarCells = null;
+
+    const flushCards = () => {
+      if (currentCards.length > 0) {
+        slide.rows.push({ cards: currentCards });
+        currentCards = [];
+      }
+      currentPrimitive = null;
+    };
+
+    for (let i = 0; i < bodyLines.length; i++) {
+      const line = bodyLines[i].trim();
+      if (!line) continue;
+
+      const h3 = line.match(/^###\s+(.+)$/);
+      if (h3) {
+        flushCards();
+        currentPrimitive = h3[1].trim().toLowerCase();
+        continue;
+      }
+
+      const li = line.match(/^[-*]\s+(.+)$/);
+      if (li) {
+        const content = li[1];
+        appendListItem(currentPrimitive, currentCards, content, slide, footerBarCells);
+        continue;
+      }
+
+      const kv = line.match(/^([\w-]+)\s*:\s*(.+)$/);
+      if (kv) {
+        const key = kv[1].toLowerCase();
+        const value = kv[2].trim();
+
+        if (key === 'accent') slide.accentWord = value;
+        else if (key === 'type') customType = value;
+        else if (key === 'lead') leadBody = value;
+        else if (key === 'lead-subtitle') leadSubtitle = value;
+        else if (key === 'lead-position') leadPosition = value;
+        else if (key === 'banner') bannerText = value;
+        else if (key === 'banner-accent') bannerAccent = value;
+        continue;
+      }
+    }
+
+    flushCards();
+
+    if (customType) slide.type = customType;
+
+    if (slide.type === 'icon-card-grid' || slide.type === 'stat-card-grid') {
+      const allCards = slide.rows.flatMap(r => r.cards);
+      delete slide.rows;
+      slide.cards = allCards;
+    }
+
+    if (leadBody || leadSubtitle || leadPosition) {
+      slide.lead = {};
+      if (leadSubtitle) slide.lead.subtitle = leadSubtitle;
+      if (leadBody) slide.lead.body = leadBody;
+      if (leadPosition) slide.lead.position = leadPosition;
+    }
+
+    if (bannerText) {
+      let text = bannerText;
+      let accentPart = bannerAccent;
+      if (!accentPart) {
+        const m = text.match(/\*\*(.+?)\*\*/);
+        if (m) accentPart = m[1];
+      }
+      text = text.replace(/\*\*(.+?)\*\*/g, '$1');
+      slide.footer = { primitive: 'dark-banner', text, accentPart: accentPart || '' };
+    }
+
+    return slide;
+  }
+
+  function appendListItem(primitive, cards, content, slide, footerBarCells) {
+    const parts = content.split('|').map(s => s.trim());
+
+    if (primitive === 'stat-row') {
+      let card = cards.find(c => c.primitive === 'stat-row');
+      if (!card) {
+        card = { primitive: 'stat-row', title: '', values: [] };
+        cards.push(card);
+      }
+      const value = { stat: parts[0] || '', label: parts[1] || '' };
+      if (parts[2] === 'accent' || parts[2] === '★') value.accent = true;
+      card.values.push(value);
+      return;
+    }
+
+    if (primitive === 'stat-hero') {
+      cards.push({ primitive: 'stat-hero', title: parts[0] || '', stat: parts[1] || '', sub: parts[2] || '' });
+      return;
+    }
+
+    if (primitive === 'stat-card') {
+      cards.push({ primitive: 'stat-card', title: parts[0] || '', sub: parts[1] || '', label: parts[2] || '', stat: parts[3] || '' });
+      return;
+    }
+
+    if (primitive === 'bullet') {
+      let card = cards.find(c => c.primitive === 'bullet');
+      if (!card) {
+        card = { primitive: 'bullet', title: '', items: [] };
+        cards.push(card);
+      }
+      card.items.push(content);
+      return;
+    }
+
+    if (primitive === 'person') {
+      const highlights = (parts[2] || '').split(',').map(s => s.trim()).filter(Boolean);
+      cards.push({ primitive: 'person', name: parts[0] || '', role: parts[1] || '', highlights });
+      return;
+    }
+
+    if (primitive === 'labeled-list') {
+      let card = cards.find(c => c.primitive === 'labeled-list');
+      if (!card) {
+        card = { primitive: 'labeled-list', title: '', groups: [] };
+        cards.push(card);
+      }
+      const items = (parts[1] || '').split(',').map(s => s.trim()).filter(Boolean);
+      card.groups.push({ label: parts[0] || '', items });
+      return;
+    }
+
+    // Default: icon-card style (emoji optional)
+    const emojiMatch = content.match(/^:([\w-]+):\s*(.+)$/);
+    if (emojiMatch) {
+      const rest = emojiMatch[2].split('|').map(s => s.trim());
+      cards.push({ emoji: emojiMatch[1], title: rest[0] || '', body: rest[1] || '' });
+    } else {
+      cards.push({ title: parts[0] || '', body: parts[1] || '' });
+    }
+  }
+
+  function detectFormat(text) {
+    const trimmed = text.trim();
+    if (!trimmed) return 'empty';
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) return 'json';
+    return 'markdown';
+  }
+
   function sanitizeJson(text) {
     // 1. Remove invisible/control chars (keep \n \r \t)
     let s = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F\u200B\u200C\u200D\u2060\uFEFF\u00AD]/g, '');
@@ -541,9 +795,16 @@
   }
 
   document.getElementById('generate').addEventListener('click', async () => {
-    const raw = sanitizeJson(document.getElementById('json').value);
+    const rawInput = document.getElementById('json').value;
+    const format = detectFormat(rawInput);
+    let data;
     try {
-      const data = JSON.parse(raw);
+      if (format === 'empty') throw new Error('입력이 비어있습니다');
+      if (format === 'json') {
+        data = JSON.parse(sanitizeJson(rawInput));
+      } else {
+        data = parseMarkdown(rawInput);
+      }
       const emojiNames = collectEmojis(data);
       const emojiBytes = {};
       for (const name of emojiNames) {
@@ -558,7 +819,8 @@
       }
       parent.postMessage({ pluginMessage: { type: 'generate', data, emojiBytes, imageBytes } }, '*');
     } catch (err) {
-      parent.postMessage({ pluginMessage: { type: 'error', message: 'Invalid JSON: ' + err.message } }, '*');
+      const prefix = format === 'markdown' ? 'Invalid Markdown: ' : 'Invalid JSON: ';
+      parent.postMessage({ pluginMessage: { type: 'error', message: prefix + err.message } }, '*');
     }
   });
 </script>
