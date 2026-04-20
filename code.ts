@@ -1123,6 +1123,116 @@ async function createLabeledListCard(parent: FrameNode, data: LabeledListCardDat
   return card;
 }
 
+// ─── GanttCard (timeline/roadmap) ───
+interface GanttCardData {
+  title: string;
+  periods: string[];
+  items: { label: string; spans: number[] }[];
+}
+
+async function createGanttCard(parent: FrameNode, data: GanttCardData, opts: CardOpts): Promise<FrameNode> {
+  const card = createCard(parent, `Gantt — ${data.title}`, { ...opts, shadow: true });
+  const pad = S.padCard;
+
+  const titleNode = await createText(card, {
+    text: data.title, x: pad, y: pad, w: opts.w - pad * 2,
+    size: 36, weight: 700, lh: 1.45, ls: -0.02, color: C.black,
+  });
+
+  const gridStartY = pad + titleNode.height + S.gapSm;
+  const labelW = (opts.w - pad * 2) * 0.3;
+  const chartW = (opts.w - pad * 2) - labelW;
+  const chartX = pad + labelW;
+  const periodW = chartW / data.periods.length;
+  const allRows = data.items.length + 1;
+  const availH = opts.h - gridStartY - pad;
+  const rowH = availH / allRows;
+
+  // Color tiers: changes every 2 columns
+  const tierColors = [hex('#FFE5F0'), hex('#FFBFDA'), hex('#FF75AE')];
+  function ganttColor(colIdx: number): RGB {
+    const tier = Math.floor(colIdx / 2);
+    return tierColors[Math.min(tier, tierColors.length - 1)];
+  }
+  function ganttTextColor(colIdx: number): RGB {
+    const tier = Math.floor(colIdx / 2);
+    return tier >= 2 ? C.white : C.g500;
+  }
+
+  // Grid container (clipped with inner radius)
+  const gridW = opts.w - pad * 2;
+  const gridH = availH;
+  const grid = figma.createFrame();
+  grid.name = 'gantt-grid';
+  grid.x = pad; grid.y = gridStartY;
+  grid.resize(gridW, gridH);
+  grid.fills = solid(C.white);
+  grid.cornerRadius = S.radiusInner;
+  grid.clipsContent = true;
+  card.appendChild(grid);
+
+  // 1열: 가장 긴 라벨 기준 폭 계산 (글자수 × 14 + 패딩)
+  const maxLabelLen = Math.max(...data.items.map(it => it.label.length), 4);
+  const innerLabelW = Math.max(maxLabelLen * 24 + pad * 2, 240);
+
+  // Label column background (g100)
+  const labelBg = figma.createRectangle();
+  labelBg.x = 0; labelBg.y = 0;
+  labelBg.resize(innerLabelW, gridH);
+  labelBg.fills = solid(C.g100);
+  grid.appendChild(labelBg);
+
+  const innerChartX = innerLabelW;
+  const innerChartW = gridW - innerLabelW;
+  const innerPeriodW = innerChartW / data.periods.length;
+
+  // Header row
+  for (let i = 0; i < data.periods.length; i++) {
+    const px = innerChartX + i * innerPeriodW;
+    const color = ganttColor(i);
+    const headerRect = figma.createRectangle();
+    headerRect.x = px; headerRect.y = 0;
+    headerRect.resize(innerPeriodW, rowH - 2);
+    headerRect.fills = solid(color);
+    grid.appendChild(headerRect);
+
+    await createText(grid, {
+      text: data.periods[i], x: px, y: (rowH - 2 - 28) / 2, w: innerPeriodW,
+      size: 24, weight: 700, lh: 1.45, ls: -0.02,
+      color: ganttTextColor(i), align: 'CENTER',
+    });
+  }
+
+  // Data rows
+  for (let r = 0; r < data.items.length; r++) {
+    const item = data.items[r];
+    const ry = (r + 1) * rowH;
+
+    await createText(grid, {
+      text: item.label, x: pad, y: ry + (rowH - 28) / 2, w: innerLabelW - pad * 2,
+      size: 24, weight: 600, lh: 1.45, ls: -0.02, color: C.black,
+    });
+
+    for (let s = 0; s < item.spans.length; s += 2) {
+      const start = item.spans[s];
+      const end = item.spans[s + 1];
+      if (start === undefined || end === undefined) break;
+
+      for (let col = start; col < end; col++) {
+        const cellX = innerChartX + col * innerPeriodW;
+        const barRect = figma.createRectangle();
+        barRect.x = cellX;
+        barRect.y = ry;
+        barRect.resize(innerPeriodW, rowH - 2);
+        barRect.fills = solid(ganttColor(col));
+        grid.appendChild(barRect);
+      }
+    }
+  }
+
+  return card;
+}
+
 // ─── Mixed Grid Slide (2×2: any combo of StatHeroCard, LabeledListCard, InlineStatTimeline) ───
 interface MixedGridSlideData {
   type: 'mixed-grid';
@@ -1272,6 +1382,9 @@ async function renderPrimitive(parent: FrameNode, p: CustomPrimitive, opts: Card
       break;
     case 'image':
       await createImagePlaceholder(parent, { label: p.label || p.title || '', caption: p.caption, imageUrl: p.imageUrl }, opts);
+      break;
+    case 'gantt':
+      await createGanttCard(parent, { title: p.title, periods: p.periods || [], items: p.items || [] }, opts);
       break;
     default:
       const fallback = createCard(parent, 'Unknown: ' + p.primitive, { ...opts, shadow: true });

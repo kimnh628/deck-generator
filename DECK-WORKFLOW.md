@@ -63,6 +63,7 @@
 | `person` | name, role, highlights | 프로필 카드 |
 | `growth-stat` | title, before, after, labels[] | before→after 막대 차트 |
 | `image` | label | 이미지 플레이스홀더 |
+| `gantt` | title, periods[], items[{label,spans[]}] | 간트 차트 (로드맵/일정표) |
 
 ### Footer Primitives
 
@@ -135,6 +136,16 @@
 - Winner 열 헤더: g800 배경 (강조 유지)
 - Winner 열 데이터: accent 텍스트 + bold
 - 나머지 헤더: g100, 1열: g100
+
+### GanttCard 규칙
+- 1열(라벨): 가장 긴 라벨 기준 폭 자동 계산 (글자 × 24px + 패딩, 최소 240px), g100 배경
+- 나머지 열(periods): 남은 공간 균등 분배
+- 색상: 2열마다 진해짐 — #FFE5F0 → #FFBFDA → #FF75AE
+- FF75AE 이상 → 흰색 텍스트
+- 행 높이: 가용 공간 균등 분배 (헤더 포함)
+- 바: 행 높이 채움 (세로 여백 2px만), 가로 여백 0
+- 내부 라운딩 20px (radiusInner), 개별 셀 라운딩 없음
+- spans: `[start, end]` 쌍으로 기간 표시 (0-indexed). 불연속 구간 가능 `[0, 2, 4, 5]`
 
 ### 텍스트 처리
 - 한글 word-break 방지: Word Joiner (U+2060) 자동 삽입
