@@ -205,7 +205,9 @@ async function createHeader(slide, eyebrow, headline, accentWord, headlineWidth)
     if (accentWord && headline.includes(accentWord)) {
         const before = headline.split(accentWord)[0];
         const after = headline.split(accentWord)[1] || '';
-        const fullText = before + accentWord + after;
+        const fullText = keepWords(before + accentWord + after);
+        const keptBefore = keepWords(before);
+        const keptAccent = keepWords(accentWord);
         const t = figma.createText();
         t.fontName = fontName(700);
         t.fontSize = 48;
@@ -213,8 +215,8 @@ async function createHeader(slide, eyebrow, headline, accentWord, headlineWidth)
         t.letterSpacing = { value: 48 * -0.02, unit: 'PIXELS' };
         t.characters = fullText;
         t.fills = solid(C.black);
-        const start = before.length;
-        const end = start + accentWord.length;
+        const start = keptBefore.length;
+        const end = start + keptAccent.length;
         t.setRangeFills(start, end, solid(C.accent));
         t.x = 80;
         t.y = 155;
@@ -1062,22 +1064,59 @@ function measureSlideDensity(data) {
     return detectDensity(avgCardH, avgUnitsPerCard);
 }
 async function createCustomSlide(data) {
+    var _a;
     const slide = createSlideFrame('Slide — Custom');
-    const headlineW = data.lead ? (data.headlineWidth || 840) : 1760;
+    const leadPos = ((_a = data.lead) === null || _a === void 0 ? void 0 : _a.position) || 'right';
+    // Header width depends on lead position
+    const headlineW = data.lead && leadPos === 'right' ? (data.headlineWidth || 840)
+        : data.lead && leadPos === 'left' ? 396
+            : 1760;
     await createHeader(slide, data.eyebrow, data.headline, data.accentWord, headlineW);
+    let contentTop = 340;
+    let cardAreaX = S.margin;
+    let cardAreaW = 1760;
     if (data.lead) {
-        await createText(slide, {
-            text: data.lead.subtitle, x: 970, y: 155, w: 870,
-            size: 28, weight: 700, lh: 1.45, ls: -0.02, color: C.black,
-        });
-        await createText(slide, {
-            text: data.lead.body, x: 970, y: 200, w: 870,
-            size: 28, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
-        });
+        if (leadPos === 'right') {
+            await createText(slide, {
+                text: data.lead.subtitle, x: 970, y: 155, w: 870,
+                size: 28, weight: 700, lh: 1.45, ls: -0.02, color: C.black,
+            });
+            await createText(slide, {
+                text: data.lead.body, x: 970, y: 200, w: 870,
+                size: 28, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
+            });
+        }
+        else if (leadPos === 'left') {
+            const leadW = 396;
+            const bodyNode = await createText(slide, {
+                text: data.lead.body, x: S.margin, y: 0, w: leadW,
+                size: 28, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
+            });
+            const subNode = await createText(slide, {
+                text: data.lead.subtitle, x: S.margin, y: 0, w: leadW,
+                size: 28, weight: 700, lh: 1.45, ls: -0.02, color: C.black,
+            });
+            const totalLeadH = subNode.height + 4 + bodyNode.height;
+            const leadY = CANVAS_H - S.margin - totalLeadH;
+            subNode.y = leadY;
+            bodyNode.y = leadY + subNode.height + 4;
+            cardAreaX = S.margin + leadW + S.gapSm;
+            cardAreaW = 1760 - leadW - S.gapSm;
+        }
+        else if (leadPos === 'bottom') {
+            const leadY = CANVAS_H - S.margin - 80;
+            await createText(slide, {
+                text: data.lead.subtitle, x: S.margin, y: leadY, w: 870,
+                size: 28, weight: 700, lh: 1.45, ls: -0.02, color: C.black,
+            });
+            await createText(slide, {
+                text: data.lead.body, x: S.margin, y: leadY + 34, w: 1760,
+                size: 28, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
+            });
+        }
     }
     const slideDensity = measureSlideDensity(data);
-    const contentTop = 340;
-    const contentBottom = CANVAS_H - S.margin;
+    const contentBottom = leadPos === 'bottom' && data.lead ? CANVAS_H - S.margin - 100 : CANVAS_H - S.margin;
     const totalRows = data.rows.length;
     const hasFooter = !!data.footer;
     let footerH = 0;
@@ -1100,11 +1139,15 @@ async function createCustomSlide(data) {
     let currentY = contentTop;
     for (const row of data.rows) {
         const rowH = row.height || flexRowH;
-        const cols = row.cards.length;
-        const cardW = (1760 - S.gapSm * (cols - 1)) / cols;
-        for (let c = 0; c < cols; c++) {
-            const cardX = S.margin + c * (cardW + S.gapSm);
+        const totalSpans = row.cards.reduce((sum, card) => sum + (card.span || 1), 0);
+        const unitW = (cardAreaW - S.gapSm * (row.cards.length - 1)) / totalSpans;
+        let cx = 0;
+        for (let c = 0; c < row.cards.length; c++) {
+            const span = row.cards[c].span || 1;
+            const cardW = unitW * span + S.gapSm * (span - 1);
+            const cardX = cardAreaX + cx;
             await renderPrimitive(slide, row.cards[c], { x: cardX, y: currentY, w: cardW, h: rowH, density: slideDensity });
+            cx += cardW + S.gapSm;
         }
         currentY += rowH + S.gapSm;
     }
@@ -1113,26 +1156,26 @@ async function createCustomSlide(data) {
         const footerY = contentBottom - footerH;
         if (fp.primitive === 'dark-banner') {
             await createDarkBanner(slide, fp.text, fp.accentPart || '', {
-                x: S.margin, y: footerY, w: 1760, h: footerH,
+                x: cardAreaX, y: footerY, w: cardAreaW, h: footerH,
             });
         }
         else if (fp.primitive === 'footer-bar') {
             await createFooterBar(slide, fp.cells || [], {
-                x: S.margin, y: footerY, w: 1760, h: footerH,
+                x: cardAreaX, y: footerY, w: cardAreaW, h: footerH,
             });
         }
         else if (fp.primitive === 'footer-card') {
             const fc = createCard(slide, 'FooterCard', {
-                x: S.margin, y: footerY, w: 1760, h: footerH, shadow: true,
+                x: cardAreaX, y: footerY, w: cardAreaW, h: footerH, shadow: true,
             });
             if (fp.title) {
                 await createText(fc, {
-                    text: fp.title, x: S.padCard, y: S.padCard, w: 1760 - S.padCard * 2,
+                    text: fp.title, x: S.padCard, y: S.padCard, w: cardAreaW - S.padCard * 2,
                     size: 36, weight: 700, lh: 1.45, ls: -0.02, color: C.black,
                 });
             }
             if (fp.blocks) {
-                const blockW = (1760 - S.padCard * 2) / fp.blocks.length;
+                const blockW = (cardAreaW - S.padCard * 2) / fp.blocks.length;
                 for (let i = 0; i < fp.blocks.length; i++) {
                     const cx = S.padCard + i * blockW + blockW / 2;
                     await createText(fc, {

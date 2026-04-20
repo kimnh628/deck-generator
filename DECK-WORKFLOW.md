@@ -80,8 +80,12 @@
 | `eyebrow` | 모든 슬라이드 | 좌상단 소제목 |
 | `headline` | 모든 슬라이드 | 메인 제목 |
 | `accentWord` | 모든 슬라이드 | headline 내 핑크 강조 단어 |
-| `lead` | custom, grid 슬라이드 | `{subtitle, body}` 우측 설명 |
+| `lead` | custom, grid 슬라이드 | `{subtitle, body, position?}` 설명 배치 |
+| `lead.position` | custom 슬라이드 | `right`(기본), `left`, `bottom` |
+| `span` | custom row 내 카드 | 카드가 차지하는 칸 수 (기본 1, 2면 2배 폭) |
 | `emoji` | icon-card | 이모지 이름 (globe, rocket, sparkles 등) |
+| `dark` | icon-card | `true`면 g800 배경 + white 텍스트 |
+| `stat` / `statSub` | icon-card | 하단 accent 수치 + 부연 (이모지 우상단 87x87) |
 
 ---
 
@@ -119,6 +123,15 @@
 - **BulletCard**: 1단 높이 > 가용공간이고 items > 2이면 자동 2단 (좌 ceil(n/2), 우 나머지)
 - **카드 내 설명(sub) 지양** → 슬라이드 lead에 배치
 - **StatRowCard 사용 기준**: DarkBanner/FooterBar 셀 최대 4개, 5+ 수치 비교 시 사용
+
+### Lead Position 규칙
+- **right** (기본): headline 좌측 (headlineWidth || 840), lead 우상단 (x:970)
+- **left**: headline 폭 396px, lead 좌하단 (하단 마진 80px 기준 배치), 카드는 우측으로 밀림 (396 + 20px gap)
+- **bottom**: headline 전체 폭, lead 슬라이드 하단, 카드 영역 축소
+
+### Card Span 규칙
+- `span: 2` → 같은 row에서 다른 카드의 2배 폭 차지
+- row 내 총 span 기준으로 폭 균등 분배
 
 ### Footer 규칙
 - DarkBanner: custom 슬라이드에서 콘텐츠 영역의 18%
