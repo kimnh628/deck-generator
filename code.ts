@@ -1457,8 +1457,9 @@ async function createCustomSlide(data: CustomSlideData): Promise<FrameNode> {
         size: 28, weight: 700, lh: 1.45, ls: -0.02, color: C.black,
       });
       subNode.y = bodyNode.y - 4 - subNode.height;
-      cardAreaX = S.margin + leadW + S.gapSm;
-      cardAreaW = 1760 - leadW - S.gapSm;
+      const leadGap = S.gapLg;
+      cardAreaX = S.margin + leadW + leadGap;
+      cardAreaW = 1760 - leadW - leadGap;
       contentTop = 155;
     } else if (leadPos === 'bottom') {
       const leadY = CANVAS_H - S.margin - 80;
