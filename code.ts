@@ -371,11 +371,11 @@ async function createIconCard(parent: FrameNode, data: IconCardData, opts: CardO
       });
     }
   } else {
-    const bodyY = titleY + titleNode.height + S.gapLg;
-    await createText(card, {
-      text: data.body, x: pad, y: bodyY, w: opts.w - pad * 2,
+    const bodyNode = await createText(card, {
+      text: data.body, x: pad, y: 0, w: opts.w - pad * 2,
       size: scaledFont(28, s.font, 'body'), weight: 500, lh: 1.45 * s.lh, ls: -0.02, color: bodyColor,
     });
+    bodyNode.y = opts.h - pad - bodyNode.height;
   }
 
   return card;
@@ -938,22 +938,25 @@ async function createBulletCard(parent: FrameNode, data: BulletCardData, opts: C
     const leftItems = data.items.slice(0, midIdx);
     const rightItems = data.items.slice(midIdx);
 
-    await createText(card, {
+    const leftNode = await createText(card, {
       text: leftItems.map(it => '•  ' + it).join('\n'),
-      x: pad, y: bulletY, w: colW,
+      x: pad, y: 0, w: colW,
       size: 28, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
     });
-    await createText(card, {
+    leftNode.y = opts.h - pad - leftNode.height;
+    const rightNode = await createText(card, {
       text: rightItems.map(it => '•  ' + it).join('\n'),
-      x: pad + colW + colGap, y: bulletY, w: colW,
+      x: pad + colW + colGap, y: 0, w: colW,
       size: 28, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
     });
+    rightNode.y = opts.h - pad - rightNode.height;
   } else {
-    await createText(card, {
+    const bulletNode = await createText(card, {
       text: data.items.map(it => '•  ' + it).join('\n'),
-      x: pad + 20, y: bulletY, w: contentW - 20,
+      x: pad + 20, y: 0, w: contentW - 20,
       size: 28, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
     });
+    bulletNode.y = opts.h - pad - bulletNode.height;
   }
 
   return card;
@@ -1441,20 +1444,22 @@ async function createCustomSlide(data: CustomSlideData): Promise<FrameNode> {
       });
     } else if (leadPos === 'left') {
       const leadW = 396;
+      const bottomY = CANVAS_H - S.margin;
+      // Render body first to measure actual height, then reposition
       const bodyNode = await createText(slide, {
-        text: data.lead.body, x: S.margin, y: 0, w: leadW,
+        text: data.lead.body, x: S.margin, y: bottomY, w: leadW,
         size: 28, weight: 500, lh: 1.45, ls: -0.02, color: C.g500,
       });
+      const actualBodyH = bodyNode.height;
+      bodyNode.y = bottomY - actualBodyH;
       const subNode = await createText(slide, {
-        text: data.lead.subtitle, x: S.margin, y: 0, w: leadW,
+        text: data.lead.subtitle, x: S.margin, y: bodyNode.y - 4, w: leadW,
         size: 28, weight: 700, lh: 1.45, ls: -0.02, color: C.black,
       });
-      const totalLeadH = subNode.height + 4 + bodyNode.height;
-      const leadY = CANVAS_H - S.margin - totalLeadH;
-      subNode.y = leadY;
-      bodyNode.y = leadY + subNode.height + 4;
+      subNode.y = bodyNode.y - 4 - subNode.height;
       cardAreaX = S.margin + leadW + S.gapSm;
       cardAreaW = 1760 - leadW - S.gapSm;
+      contentTop = 155;
     } else if (leadPos === 'bottom') {
       const leadY = CANVAS_H - S.margin - 80;
       await createText(slide, {
